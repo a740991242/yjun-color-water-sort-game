@@ -1077,11 +1077,12 @@
       if (!state.audio) {
         const AudioContext = window.AudioContext || window.webkitAudioContext;
         if (!AudioContext) return;
-        state.audio = { ctx: new AudioContext(), water: null, music: null, waterFile: null };
+        state.audio = { ctx: new AudioContext(), water: null, music: null };
       }
       if (state.audio.ctx.state === "suspended") {
-        state.audio.ctx.resume();
+        return state.audio.ctx.resume();
       }
+      return Promise.resolve();
     }
 
     function playTone(freq, duration, type) {
@@ -1105,24 +1106,23 @@
     function startWaterNoise() {
       if (!state.sfx) return;
       unlockAudio();
-      if (!state.audio || state.audio.water) return;
-      if (!state.audio.waterFile) {
-        state.audio.waterFile = new Audio(WATER_AUDIO_URL);
-        state.audio.waterFile.preload = "auto";
-        state.audio.waterFile.loop = true;
-      }
+      if (!state.audio) return;
+      stopWaterNoise(true);
 
-      const audio = state.audio.waterFile;
+      const audio = new Audio(WATER_AUDIO_URL);
+      audio.preload = "auto";
+      audio.loop = false;
       audio.currentTime = 0;
       audio.volume = 0;
       const fadeTimer = setInterval(() => {
         audio.volume = Math.min(0.82, audio.volume + 0.12);
         if (audio.volume >= 0.82) clearInterval(fadeTimer);
       }, 28);
-      state.audio.water = { kind: "file", audio, fadeTimer, startedAt: performance.now(), minPlayMs: 3000 };
+      state.audio.water = { kind: "file", audio, fadeTimer, fadeOutTimer: null };
 
       audio.play().catch(() => {
         clearInterval(fadeTimer);
+        if (!state.audio || !state.audio.water || state.audio.water.audio !== audio) return;
         state.audio.water = null;
         startGeneratedWaterNoise();
       });
@@ -1131,7 +1131,8 @@
     function startGeneratedWaterNoise() {
       if (!state.sfx) return;
       unlockAudio();
-      if (!state.audio || state.audio.water) return;
+      if (!state.audio) return;
+      stopWaterNoise(true);
       const audioCtx = state.audio.ctx;
       const master = audioCtx.createGain();
       master.gain.setValueAtTime(0.0001, audioCtx.currentTime);
@@ -1188,7 +1189,7 @@
       gurgleGain.connect(master);
 
       const dripTimer = setInterval(() => {
-        if (!state.audio || !state.audio.water) return;
+        if (!state.audio || !state.audio.water || state.audio.water.kind !== "generated") return;
         const t = audioCtx.currentTime;
         const osc = audioCtx.createOscillator();
         const osc2 = audioCtx.createOscillator();
@@ -1228,12 +1229,15 @@
       const water = state.audio.water;
       state.audio.water = null;
       if (water.kind === "file") {
-        const { audio, fadeTimer, startedAt, minPlayMs } = water;
+        const { audio, fadeTimer, fadeOutTimer } = water;
         clearInterval(fadeTimer);
-        const remaining = force ? 0 : Math.max(0, minPlayMs - (performance.now() - startedAt));
-        setTimeout(() => {
-          fadeOutWaterFile(audio);
-        }, remaining);
+        clearInterval(fadeOutTimer);
+        if (force) {
+          audio.pause();
+          audio.currentTime = 0;
+          return;
+        }
+        fadeOutWaterFile(audio);
         return;
       }
 
@@ -1263,13 +1267,13 @@
       }, 24);
     }
 
-    function startBackgroundMusic() {
+    async function startBackgroundMusic() {
       if (!state.musicOn) return;
-      unlockAudio();
+      await unlockAudio();
       if (!state.audio || state.audio.music) return;
       const audioCtx = state.audio.ctx;
       const master = audioCtx.createGain();
-      master.gain.value = 0.14;
+      master.gain.value = 0.38;
       master.connect(audioCtx.destination);
       const music = {
         master,
@@ -1369,11 +1373,10 @@
       const next = Math.min(LEVELS.length - 1, state.levelIndex + 1);
       loadLevel(next);
     });
-    musicButton.addEventListener("click", () => {
+    musicButton.addEventListener("click", async () => {
       state.musicOn = !state.musicOn;
-      unlockAudio();
       if (state.musicOn) {
-        startBackgroundMusic();
+        await startBackgroundMusic();
       } else {
         stopBackgroundMusic();
       }
