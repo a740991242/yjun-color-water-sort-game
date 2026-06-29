@@ -12,6 +12,7 @@
       --sky: #39aeea;
       --ink: #243044;
       --glass: rgba(255, 255, 255, 0.18);
+      --app-height: 100svh;
       font-family: Inter, "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
       background: var(--pink);
       color: var(--ink);
@@ -24,7 +25,7 @@
 
     body {
       margin: 0;
-      min-height: 100vh;
+      min-height: var(--app-height);
       display: grid;
       place-items: center;
       background:
@@ -36,8 +37,8 @@
 
     .game-shell {
       width: min(100vw, 440px);
-      height: min(100vh, 780px);
-      min-height: 640px;
+      height: min(var(--app-height), 780px);
+      min-height: 0;
       display: grid;
       grid-template-rows: auto 1fr auto;
       overflow: hidden;
@@ -164,7 +165,7 @@
 
     @media (max-width: 380px) {
       .game-shell {
-        min-height: 100vh;
+        height: var(--app-height);
       }
 
       h1 {
@@ -421,7 +422,13 @@
       }
     }
 
+    function syncAppHeight() {
+      const viewportHeight = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+      document.documentElement.style.setProperty("--app-height", `${Math.max(520, viewportHeight)}px`);
+    }
+
     function resizeCanvas() {
+      syncAppHeight();
       const rect = canvas.getBoundingClientRect();
       const ratio = window.devicePixelRatio || 1;
       canvas.width = Math.max(1, Math.floor(rect.width * ratio));
@@ -1352,9 +1359,20 @@
     window.addEventListener("resize", () => {
       resizeCanvas();
     });
+    window.addEventListener("orientationchange", () => {
+      requestAnimationFrame(resizeCanvas);
+      setTimeout(resizeCanvas, 250);
+    });
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener("resize", resizeCanvas);
+      window.visualViewport.addEventListener("scroll", resizeCanvas);
+    }
 
     loadLevel(0);
+    syncAppHeight();
     resizeCanvas();
+    requestAnimationFrame(resizeCanvas);
+    setTimeout(resizeCanvas, 250);
     requestAnimationFrame(render);
   </script>
 </body>
