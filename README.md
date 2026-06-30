@@ -1,10 +1,39 @@
 # 魔彩瓶
 
-一款用原生 HTML Canvas 实现的颜色倒水闯关小游戏。玩家需要把相同颜色的水倒在一起，完成简单模式和困难模式挑战。
+一款 React + Canvas 实现的颜色倒水闯关小游戏。React 负责页面挂载和工程化构建，Canvas 负责玻璃瓶、水流、粒子、彩虹桥等游戏画面。
 
-## 运行方式
+## 技术栈
 
-直接用浏览器打开 `index.html` 即可运行，不需要安装依赖或构建工具。也可以部署到 GitHub Pages、Vercel、Netlify 等静态托管服务。
+- React 19
+- TypeScript
+- Vite
+- Canvas 2D
+- pnpm
+
+## 本地运行
+
+```bash
+pnpm install
+pnpm dev
+```
+
+默认访问：
+
+```text
+http://localhost:5173
+```
+
+## 构建
+
+```bash
+pnpm build
+```
+
+构建产物输出到：
+
+```text
+dist/
+```
 
 ## 当前功能
 
@@ -27,12 +56,29 @@ node scripts/validate-levels.js
 
 脚本会检查颜色数量、瓶子容量和基础空位配置，避免明显不可玩的关卡进入正式版本。
 
-## GitHub Pages 部署
+## GitHub Pages 自动部署
 
-仓库根目录已有 `index.html`，可在 GitHub 仓库的 `Settings -> Pages` 中设置：
+本项目已经包含：
 
-- Source: Deploy from a branch
-- Branch: main
-- Folder: /root
+```text
+.github/workflows/deploy.yml
+```
 
-保存后等待 GitHub Pages 构建完成即可访问。
+推送到 `main` 后，GitHub Actions 会自动：
+
+1. 安装 pnpm。
+2. 安装依赖。
+3. 执行 `pnpm build`。
+4. 发布 `dist/` 到 GitHub Pages。
+
+仓库 Pages 设置需要选择：
+
+```text
+Settings -> Pages -> Source: GitHub Actions
+```
+
+线上访问地址：
+
+```text
+https://a740991242.github.io/yjun-color-water-sort-game/
+```
