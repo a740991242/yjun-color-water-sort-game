@@ -103,6 +103,8 @@ export function initMocaipingGame(root: ParentNode = document) {
       languageZh: { zh: "切换到中文朗读", en: "Chinese voice", toddlerZh: "中文", toddlerEn: "Chinese", voice: "language-zh", speakZh: "切换到中文朗读。", speakEn: "Chinese voice." },
       languageEn: { zh: "切换到英文朗读", en: "English voice", toddlerZh: "英文", toddlerEn: "English", voice: "language-en", speakZh: "切换到英文朗读。", speakEn: "English voice." },
       languageBoth: { zh: "切换到双语朗读", en: "Bilingual voice", toddlerZh: "双语", toddlerEn: "Bilingual", voice: "language-both", speakZh: "切换到双语朗读。", speakEn: "Bilingual voice." },
+      toddlerMode: { zh: "切换到幼宝模式", en: "Toddler mode", toddlerZh: "幼宝模式", toddlerEn: "Toddler mode", voice: "toddler-mode", speakZh: "切换到幼宝模式。", speakEn: "Toddler mode." },
+      normalMode: { zh: "切换到常规模式", en: "Normal mode", toddlerZh: "常规模式", toddlerEn: "Normal mode", voice: "normal-mode", speakZh: "切换到常规模式。", speakEn: "Normal mode." },
       finish: { zh: "恭喜通关", en: "Congratulations", toddlerZh: "真棒", toddlerEn: "Great", voice: "finish", speakZh: "太棒了，完成了。", speakEn: "Great job. You did it." },
       timeUp: { zh: "时间到了", en: "Time is up", toddlerZh: "时间到", toddlerEn: "Time up", voice: "time-up", speakZh: "时间到了，没关系，我们再试一次。", speakEn: "Time is up. It's okay. Let's try again." }
     };
@@ -1581,26 +1583,45 @@ export function initMocaipingGame(root: ParentNode = document) {
       return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
     }
 
-    function unlockAudio() {
+    function primeAudioContext() {
+      if (!state.audio || state.audio.primed) return;
+      const audioCtx = state.audio.ctx;
+      const pulse = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      gain.gain.value = 0.0001;
+      pulse.connect(gain);
+      gain.connect(audioCtx.destination);
+      pulse.start(audioCtx.currentTime);
+      pulse.stop(audioCtx.currentTime + 0.01);
+      state.audio.primed = true;
+    }
+
+    function unlockAudio(onReady) {
       if (!state.audio) {
         const AudioContext = window.AudioContext || window.webkitAudioContext;
         if (!AudioContext) return;
         state.audio = { ctx: new AudioContext(), water: null, music: null, primed: false };
       }
-      if (state.audio.ctx.state === "suspended") {
-        state.audio.ctx.resume().catch(() => {});
+      const audioCtx = state.audio.ctx;
+      let readyCalled = false;
+      const markReady = () => {
+        if (readyCalled || !state.audio) return;
+        readyCalled = true;
+        primeAudioContext();
+        if (typeof onReady === "function") onReady();
+      };
+      if (audioCtx.state === "suspended") {
+        primeAudioContext();
+        const resumePromise = audioCtx.resume();
+        if (resumePromise && typeof resumePromise.then === "function") {
+          resumePromise.then(markReady).catch(() => {});
+        }
+        setTimeout(() => {
+          if (audioCtx.state === "running") markReady();
+        }, 80);
+        return;
       }
-      if (!state.audio.primed) {
-        const audioCtx = state.audio.ctx;
-        const pulse = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        gain.gain.value = 0.0001;
-        pulse.connect(gain);
-        gain.connect(audioCtx.destination);
-        pulse.start(audioCtx.currentTime);
-        pulse.stop(audioCtx.currentTime + 0.01);
-        state.audio.primed = true;
-      }
+      markReady();
     }
 
     function playTone(freq, duration, type) {
@@ -1844,9 +1865,12 @@ export function initMocaipingGame(root: ParentNode = document) {
 
     function startBackgroundMusic() {
       if (!state.musicOn) return;
-      unlockAudio();
       if (!state.audio || state.audio.music) return;
       const audioCtx = state.audio.ctx;
+      if (audioCtx.state === "suspended") {
+        unlockAudio(startBackgroundMusic);
+        return;
+      }
       const master = audioCtx.createGain();
       master.gain.value = currentMusicGain();
       master.connect(audioCtx.destination);
@@ -1940,8 +1964,7 @@ export function initMocaipingGame(root: ParentNode = document) {
     function setMusicEnabled(enabled) {
       state.musicOn = enabled;
       if (state.musicOn) {
-        unlockAudio();
-        startBackgroundMusic();
+        unlockAudio(startBackgroundMusic);
       } else {
         stopBackgroundMusic();
       }
@@ -1978,12 +2001,7 @@ export function initMocaipingGame(root: ParentNode = document) {
       state.teachingStyle = style;
       updateHud();
       savePreferences();
-      showTeaching({
-        zh: style === "toddler" ? "幼宝模式" : "常规模式",
-        en: style === "toddler" ? "Toddler mode" : "Normal mode",
-        toddlerZh: style === "toddler" ? "真棒" : "常规",
-        toddlerEn: style === "toddler" ? "Great" : "Normal"
-      });
+      showTeaching(style === "toddler" ? TEACHING_LINES.toddlerMode : TEACHING_LINES.normalMode);
     }
 
     function closeSettings() {
@@ -2009,16 +2027,36 @@ export function initMocaipingGame(root: ParentNode = document) {
 
     function startCoverIntro() {
       if (!coverIntro) return;
-      setTimeout(() => {
+      const coverImage = coverIntro.querySelector(".cover-art");
+      let started = false;
+      const startOpening = () => {
+        if (started) return;
+        started = true;
         coverIntro.classList.add("opening");
-      }, 520);
-      setTimeout(() => {
-        coverIntro.classList.add("hidden");
-      }, 1380);
-      setTimeout(() => {
-        coverIntro.style.display = "none";
-      }, 1680);
+        setTimeout(() => {
+          coverIntro.classList.add("hidden");
+        }, 860);
+        setTimeout(() => {
+          coverIntro.style.display = "none";
+        }, 1160);
+      };
+      const waitThenOpen = () => setTimeout(startOpening, 680);
+      if (coverImage && coverImage.complete && coverImage.naturalWidth > 0) {
+        waitThenOpen();
+      } else if (coverImage) {
+        coverImage.addEventListener("load", waitThenOpen, { once: true });
+        coverImage.addEventListener("error", waitThenOpen, { once: true });
+        setTimeout(waitThenOpen, 2600);
+      } else {
+        waitThenOpen();
+      }
     }
+
+    [canvas, audioToggleButton, musicButton, soundButton].forEach((target) => {
+      if (!target) return;
+      target.addEventListener("pointerdown", () => unlockAudio(), { passive: true });
+      target.addEventListener("touchstart", () => unlockAudio(), { passive: true });
+    });
 
     canvas.addEventListener("click", handleCanvasClick);
     undoButton.addEventListener("click", () => {
