@@ -1,0 +1,14 @@
+url: http://localhost:5201/?debugAudio=1
+---
+- launchApp
+- extendedWaitUntil:
+    visible: "开启背景音乐"
+    timeout: 12000
+- assertVisible: "Audio: none | Music: off/stopped | SFX: off | Water: idle"
+- tapOn: "开启背景音乐"
+- extendedWaitUntil:
+    visible: "Audio: none | Music: on/started | SFX: off | Water: idle"
+    timeout: 5000
+- assertVisible: "Audio: none | Music: on/started | SFX: off | Water: idle"
+- tapOn: "开启倒水音效"
+- assertVisible: "关闭倒水音效"

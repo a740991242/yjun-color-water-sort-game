@@ -1,0 +1,12 @@
+appId: com.apple.mobilesafari
+---
+- launchApp
+- extendedWaitUntil:
+    visible: "撤销"
+    timeout: 12000
+- assertVisible: "撤销"
+- assertVisible: "提示"
+- assertVisible: "重开"
+- assertVisible: "开启背景音乐"
+- assertVisible: "开启倒水音效"
+- assertVisible: "Audio: none | Music: off/stopped | SFX: off | Water: idle"

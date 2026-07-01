@@ -1,0 +1,12 @@
+appId: com.apple.mobilesafari
+---
+- launchApp
+- extendedWaitUntil:
+    visible: "开启背景音乐"
+    timeout: 12000
+- assertVisible: "Audio: none | Music: off/stopped | SFX: on | Water: idle"
+- tapOn: "开启背景音乐"
+- extendedWaitUntil:
+    visible: "Audio: none | Music: on/started | SFX: on | Water: idle"
+    timeout: 5000
+- assertVisible: "Audio: none | Music: on/started | SFX: on | Water: idle"

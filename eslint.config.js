@@ -1,7 +1,7 @@
 import antfu from '@antfu/eslint-config'
 
 export default antfu({
-  ignores: ['**/*.md', 'src/mocaiping/game.ts', 'src/mocaiping/mocaiping.css'],
+  ignores: ['**/*.md', '.maestro/**', 'src/mocaiping/game.ts', 'src/mocaiping/mocaiping.css'],
   vue: false,
   react: true, // @eslint-react/eslint-plugin
   typescript: true,

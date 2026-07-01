@@ -1,5 +1,8 @@
 // @ts-nocheck
 export function initMocaipingGame(root: ParentNode = document) {
+    if (typeof window.__mocaipingDestroyCurrent === "function") {
+      window.__mocaipingDestroyCurrent();
+    }
 
     const canvas = root.querySelector("#game");
     const ctx = canvas.getContext("2d");
@@ -21,7 +24,8 @@ export function initMocaipingGame(root: ParentNode = document) {
     const easyModeButton = root.querySelector("#easyMode");
     const hardModeButton = root.querySelector("#hardMode");
     const levelGrid = root.querySelector("#levelGrid");
-    const audioToggleButton = root.querySelector("#audioToggle");
+    const toolbarMusicButton = root.querySelector("#toolbarMusic");
+    const toolbarSoundButton = root.querySelector("#toolbarSound");
     const musicButton = root.querySelector("#music");
     const soundButton = root.querySelector("#sound");
     const teachingButton = root.querySelector("#teaching");
@@ -46,7 +50,12 @@ export function initMocaipingGame(root: ParentNode = document) {
     const resultRestartButton = root.querySelector("#resultRestart");
     const resultNextButton = root.querySelector("#resultNext");
     const coverIntro = root.querySelector("#coverIntro");
+    const gameShell = root.querySelector(".game-shell");
     const WATER_AUDIO_URL = "assets/pour-water.mp3";
+    const MUSIC_AUDIO_URLS = {
+      m4a: "assets/background-music.m4a",
+      mp3: "assets/background-music.mp3"
+    };
     const MUSIC_MAX_GAIN = 1.65;
     const SFX_MAX_GAIN = 0.08;
     const WATER_FILE_MAX_VOLUME = 1;
@@ -56,6 +65,15 @@ export function initMocaipingGame(root: ParentNode = document) {
     const GUIDE_KEY = "mocaiping-first-guide-seen";
     const finaleRainbowImage = new Image();
     finaleRainbowImage.src = "assets/brand/finale-rainbow-bridge.png";
+    const audioDebugEnabled = new URLSearchParams(window.location.search).get("debugAudio") === "1";
+    const audioDebugEl = audioDebugEnabled ? document.createElement("div") : null;
+    if (audioDebugEl && gameShell) {
+      audioDebugEl.className = "audio-debug";
+      audioDebugEl.setAttribute("aria-live", "polite");
+      gameShell.appendChild(audioDebugEl);
+    }
+    let destroyed = false;
+    let renderFrame = 0;
 
     const COLORS = {
       berry: "#7c4bd9",
@@ -320,6 +338,7 @@ export function initMocaipingGame(root: ParentNode = document) {
       speechMode: "both",
       teachingStyle: "normal",
       teachingAudio: null,
+      musicTrack: null,
       bestStars: {},
       bestMoves: {},
       unlocked: { easy: LEVELS.length - 1, hard: 0 },
@@ -384,6 +403,7 @@ export function initMocaipingGame(root: ParentNode = document) {
         localStorage.setItem(SAVE_KEY, JSON.stringify({
           mode: state.mode,
           levelIndex: state.levelIndex,
+          musicOn: false,
           sfx: state.sfx,
           teaching: state.teaching,
           speechOn: state.speechOn,
@@ -407,6 +427,7 @@ export function initMocaipingGame(root: ParentNode = document) {
         const raw = localStorage.getItem(SAVE_KEY);
         if (!raw) return;
         const saved = JSON.parse(raw);
+        state.musicOn = false;
         if (MODES[saved.mode]) state.mode = saved.mode;
         const levels = activeLevels();
         state.levelIndex = clamp(Number(saved.levelIndex) || 0, 0, levels.length - 1);
@@ -523,9 +544,16 @@ export function initMocaipingGame(root: ParentNode = document) {
       musicButton.classList.toggle("is-off", !state.musicOn);
       soundButton.classList.toggle("is-on", state.sfx);
       soundButton.classList.toggle("is-off", !state.sfx);
+      toolbarMusicButton.classList.toggle("is-on", state.musicOn);
+      toolbarMusicButton.classList.toggle("is-off", !state.musicOn);
+      toolbarMusicButton.setAttribute("aria-label", state.musicOn ? "关闭背景音乐" : "开启背景音乐");
+      toolbarMusicButton.title = state.musicOn ? "关闭背景音乐" : "开启背景音乐";
+      toolbarSoundButton.classList.toggle("is-on", state.sfx);
+      toolbarSoundButton.classList.toggle("is-off", !state.sfx);
+      toolbarSoundButton.setAttribute("aria-label", state.sfx ? "关闭倒水音效" : "开启倒水音效");
+      toolbarSoundButton.title = state.sfx ? "关闭倒水音效" : "开启倒水音效";
       teachingButton.classList.toggle("is-on", state.teaching);
       teachingButton.classList.toggle("is-off", !state.teaching);
-      audioToggleButton.textContent = state.musicOn || state.sfx ? "关闭音乐/音效" : "开启音乐/音效";
       masterVolumeInput.value = Math.round(state.masterVolume * 100);
       masterVolumeValue.textContent = `${Math.round(state.masterVolume * 100)}%`;
       musicVolumeInput.value = Math.round(state.musicVolume * 100);
@@ -534,6 +562,7 @@ export function initMocaipingGame(root: ParentNode = document) {
       sfxVolumeValue.textContent = `${Math.round(state.sfxVolume * 100)}%`;
       voiceVolumeInput.value = Math.round(state.voiceVolume * 100);
       voiceVolumeValue.textContent = `${Math.round(state.voiceVolume * 100)}%`;
+      updateAudioDebug();
       easyModeButton.classList.toggle("active", state.mode === "easy");
       hardModeButton.classList.toggle("active", state.mode === "hard");
       speechZhButton.classList.toggle("active", state.speechMode === "zh");
@@ -1368,6 +1397,7 @@ export function initMocaipingGame(root: ParentNode = document) {
     }
 
     function render(now) {
+      if (destroyed) return;
       const dt = Math.min(50, now - state.lastFrame);
       state.lastFrame = now;
       tickTimer(dt);
@@ -1402,7 +1432,7 @@ export function initMocaipingGame(root: ParentNode = document) {
 
       drawParticles();
       drawFinale(now);
-      requestAnimationFrame(render);
+      renderFrame = requestAnimationFrame(render);
     }
 
     function tickTimer(dt) {
@@ -1607,17 +1637,17 @@ export function initMocaipingGame(root: ParentNode = document) {
       const markReady = () => {
         if (readyCalled || !state.audio) return;
         readyCalled = true;
-        primeAudioContext();
+        updateAudioDebug();
         if (typeof onReady === "function") onReady();
       };
       if (audioCtx.state === "suspended") {
-        primeAudioContext();
         const resumePromise = audioCtx.resume();
         if (resumePromise && typeof resumePromise.then === "function") {
           resumePromise.then(markReady).catch(() => {});
         }
         setTimeout(() => {
           if (audioCtx.state === "running") markReady();
+          updateAudioDebug();
         }, 80);
         return;
       }
@@ -1814,6 +1844,10 @@ export function initMocaipingGame(root: ParentNode = document) {
       return MUSIC_MAX_GAIN * state.masterVolume * state.musicVolume;
     }
 
+    function currentMusicVolume() {
+      return Math.min(1, currentMusicGain());
+    }
+
     function currentSfxGain() {
       return SFX_MAX_GAIN * state.masterVolume * state.sfxVolume;
     }
@@ -1827,29 +1861,24 @@ export function initMocaipingGame(root: ParentNode = document) {
     }
 
     function duckMusicForWater() {
-      if (!state.audio || !state.audio.music) return;
-      const audioCtx = state.audio.ctx;
-      const gain = Math.max(0.0001, currentMusicGain() * WATER_MUSIC_DUCK);
-      state.audio.music.master.gain.cancelScheduledValues(audioCtx.currentTime);
-      state.audio.music.master.gain.setTargetAtTime(gain, audioCtx.currentTime, 0.045);
+      if (!state.musicTrack) return;
+      state.musicTrack.audio.volume = Math.min(1, currentMusicGain() * WATER_MUSIC_DUCK);
     }
 
     function restoreMusicAfterWater() {
-      if (!state.audio || !state.audio.music) return;
-      const audioCtx = state.audio.ctx;
-      const gain = Math.max(0.0001, currentMusicGain());
-      state.audio.music.master.gain.cancelScheduledValues(audioCtx.currentTime);
-      state.audio.music.master.gain.setTargetAtTime(gain, audioCtx.currentTime, 0.12);
+      if (!state.musicTrack) return;
+      state.musicTrack.audio.volume = currentMusicVolume();
     }
 
     function applyMasterVolume() {
-      if (!state.audio) return;
-      const audioCtx = state.audio.ctx;
-      if (state.audio.music) {
-        const gain = Math.max(0.0001, currentMusicGain());
-        state.audio.music.master.gain.cancelScheduledValues(audioCtx.currentTime);
-        state.audio.music.master.gain.setTargetAtTime(gain, audioCtx.currentTime, 0.035);
+      if (state.musicTrack) {
+        state.musicTrack.audio.volume = currentMusicVolume();
       }
+      if (!state.audio) {
+        if (state.teachingAudio) state.teachingAudio.volume = currentTeachingVoiceVolume();
+        return;
+      }
+      const audioCtx = state.audio.ctx;
       if (state.audio.water && state.audio.water.kind === "file") {
         state.audio.water.audio.volume = currentWaterFileVolume();
       }
@@ -1865,121 +1894,98 @@ export function initMocaipingGame(root: ParentNode = document) {
 
     function startBackgroundMusic() {
       if (!state.musicOn) return;
-      if (!state.audio || state.audio.music) return;
-      const audioCtx = state.audio.ctx;
-      if (audioCtx.state === "suspended") {
-        unlockAudio(startBackgroundMusic);
-        return;
-      }
-      const master = audioCtx.createGain();
-      master.gain.value = currentMusicGain();
-      master.connect(audioCtx.destination);
+      if (state.musicTrack && !state.musicTrack.stopped) return;
+      const audio = new Audio();
+      const supportsM4a = audio.canPlayType("audio/mp4; codecs=mp4a.40.2");
+      audio.src = supportsM4a ? MUSIC_AUDIO_URLS.m4a : MUSIC_AUDIO_URLS.mp3;
+      audio.preload = "auto";
+      audio.loop = true;
+      audio.volume = currentMusicVolume();
+      audio.setAttribute("playsinline", "true");
       const music = {
-        master,
-        timers: [],
-        sources: [],
-        step: 0,
-        stopped: false,
-        tempo: 132,
-        notes: [392, 466.16, 523.25, 466.16, 392, 311.13, 349.23, 392],
-        bass: [98, 98, 116.54, 98, 130.81, 116.54, 98, 77.78]
+        kind: "file",
+        audio,
+        stopped: false
       };
-      state.audio.music = music;
-
-      const beatMs = 60000 / music.tempo;
-      const playBlip = (freq, time, duration, volume, type = "square") => {
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        const filter = audioCtx.createBiquadFilter();
-        osc.type = type;
-        osc.frequency.setValueAtTime(freq, time);
-        filter.type = "lowpass";
-        filter.frequency.setValueAtTime(1200, time);
-        gain.gain.setValueAtTime(0.0001, time);
-        gain.gain.exponentialRampToValueAtTime(volume, time + 0.012);
-        gain.gain.exponentialRampToValueAtTime(0.0001, time + duration);
-        osc.connect(filter);
-        filter.connect(gain);
-        gain.connect(master);
-        osc.start(time);
-        osc.stop(time + duration + 0.03);
-      };
-
-      const playTick = (time, strong) => {
-        const buffer = audioCtx.createBuffer(1, Math.floor(audioCtx.sampleRate * 0.045), audioCtx.sampleRate);
-        const data = buffer.getChannelData(0);
-        for (let i = 0; i < data.length; i += 1) {
-          data[i] = (Math.random() * 2 - 1) * (1 - i / data.length);
-        }
-        const src = audioCtx.createBufferSource();
-        const filter = audioCtx.createBiquadFilter();
-        const gain = audioCtx.createGain();
-        src.buffer = buffer;
-        filter.type = "bandpass";
-        filter.frequency.value = strong ? 520 : 980;
-        filter.Q.value = 1.2;
-        gain.gain.setValueAtTime(strong ? 0.07 : 0.035, time);
-        gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.05);
-        src.connect(filter);
-        filter.connect(gain);
-        gain.connect(master);
-        src.start(time);
-      };
-
-      const scheduleStep = () => {
-        if (!state.audio || state.audio.music !== music || music.stopped) return;
-        const now = audioCtx.currentTime + 0.025;
-        const step = music.step % music.notes.length;
-        const note = music.notes[step];
-        const bass = music.bass[step];
-        playBlip(note, now, 0.16, 0.095, step % 2 ? "triangle" : "square");
-        playBlip(note * 1.5, now + 0.055, 0.07, 0.03, "sine");
-        playBlip(bass, now, 0.13, step % 2 === 0 ? 0.06 : 0.038, "triangle");
-        playTick(now, step === 0 || step === 4);
-        music.step += 1;
-        music.timers.push(setTimeout(scheduleStep, beatMs / 2));
-      };
-
-      scheduleStep();
+      state.musicTrack = music;
+      updateAudioDebug();
+      const playPromise = audio.play();
+      if (playPromise && typeof playPromise.then === "function") {
+        playPromise.then(updateAudioDebug).catch(() => {
+          if (state.musicTrack !== music) return;
+          music.stopped = true;
+          state.musicTrack = null;
+          state.musicOn = false;
+          showToast("背景音乐被浏览器拦截，请再点一次");
+          updateHud();
+          updateAudioDebug();
+        });
+      } else {
+        updateAudioDebug();
+      }
     }
 
     function stopBackgroundMusic() {
-      if (!state.audio || !state.audio.music) return;
-      const music = state.audio.music;
+      if (!state.musicTrack) return;
+      const music = state.musicTrack;
       music.stopped = true;
-      music.timers.forEach((timer) => clearTimeout(timer));
-      music.master.gain.exponentialRampToValueAtTime(0.0001, state.audio.ctx.currentTime + 0.12);
-      setTimeout(() => {
-        music.sources.forEach((source) => {
-          try {
-            source.stop();
-          } catch (error) {
-            // Continuous music source may already be stopped.
-          }
-        });
-      }, 140);
-      state.audio.music = null;
+      music.audio.pause();
+      music.audio.currentTime = 0;
+      state.musicTrack = null;
+      updateAudioDebug();
     }
 
     function setMusicEnabled(enabled) {
       state.musicOn = enabled;
       if (state.musicOn) {
-        unlockAudio(startBackgroundMusic);
+        startBackgroundMusic();
       } else {
         stopBackgroundMusic();
       }
       updateHud();
       savePreferences();
+      updateAudioDebug();
     }
 
-    function setSoundEnabled(enabled) {
+    function setSoundEnabled(enabled, shouldUnlock = true) {
       state.sfx = enabled;
-      unlockAudio();
+      if (shouldUnlock) unlockAudio();
       if (!state.sfx) {
         stopWaterNoise(true);
       }
       updateHud();
       savePreferences();
+      updateAudioDebug();
+    }
+
+    function audioDebugSnapshot() {
+      const audioState = state.audio?.ctx?.state || "none";
+      return {
+        audioState,
+        musicOn: state.musicOn,
+        musicStarted: Boolean(state.musicTrack && !state.musicTrack.stopped && !state.musicTrack.audio.paused),
+        sfxOn: state.sfx,
+        waterPlaying: Boolean(state.audio?.water),
+        teachingOn: state.teaching,
+        speechMode: state.speechMode
+      };
+    }
+
+    function updateAudioDebug() {
+      const snapshot = audioDebugSnapshot();
+      window.__mocaipingAudioDebug = audioDebugSnapshot;
+      if (!audioDebugEl) return;
+      audioDebugEl.dataset.audioState = snapshot.audioState;
+      audioDebugEl.dataset.musicOn = String(snapshot.musicOn);
+      audioDebugEl.dataset.musicStarted = String(snapshot.musicStarted);
+      audioDebugEl.dataset.sfxOn = String(snapshot.sfxOn);
+      audioDebugEl.dataset.waterPlaying = String(snapshot.waterPlaying);
+      audioDebugEl.textContent = [
+        `Audio: ${snapshot.audioState}`,
+        `Music: ${snapshot.musicOn ? "on" : "off"}/${snapshot.musicStarted ? "started" : "stopped"}`,
+        `SFX: ${snapshot.sfxOn ? "on" : "off"}`,
+        `Water: ${snapshot.waterPlaying ? "playing" : "idle"}`
+      ].join(" | ");
     }
 
     function setTeachingEnabled(enabled) {
@@ -2003,6 +2009,27 @@ export function initMocaipingGame(root: ParentNode = document) {
       savePreferences();
       showTeaching(style === "toddler" ? TEACHING_LINES.toddlerMode : TEACHING_LINES.normalMode);
     }
+
+    function destroyGame() {
+      if (destroyed) return;
+      destroyed = true;
+      if (renderFrame) cancelAnimationFrame(renderFrame);
+      stopBackgroundMusic();
+      stopWaterNoise(true);
+      stopTeachingAudio();
+      if (state.audio?.ctx && state.audio.ctx.state !== "closed") {
+        state.audio.ctx.close().catch(() => {});
+      }
+      if (audioDebugEl) audioDebugEl.remove();
+      if (window.__mocaipingDestroyCurrent === destroyGame) {
+        window.__mocaipingDestroyCurrent = null;
+      }
+      updateAudioDebug();
+    }
+
+    window.__mocaipingDestroyCurrent = destroyGame;
+    window.addEventListener("pagehide", destroyGame, { once: true });
+    window.addEventListener("beforeunload", destroyGame, { once: true });
 
     function closeSettings() {
       state.settingsOpen = false;
@@ -2052,11 +2079,21 @@ export function initMocaipingGame(root: ParentNode = document) {
       }
     }
 
-    [canvas, audioToggleButton, musicButton, soundButton].forEach((target) => {
+    [canvas, toolbarSoundButton, soundButton].forEach((target) => {
       if (!target) return;
       target.addEventListener("pointerdown", () => unlockAudio(), { passive: true });
       target.addEventListener("touchstart", () => unlockAudio(), { passive: true });
     });
+
+    let lastMusicGestureAt = 0;
+
+    function handleMusicGesture() {
+      const now = performance.now();
+      if (now - lastMusicGestureAt < 420) return;
+      lastMusicGestureAt = now;
+      setMusicEnabled(!state.musicOn);
+      showToast(state.musicOn ? "背景音乐已开启" : "背景音乐已关闭");
+    }
 
     canvas.addEventListener("click", handleCanvasClick);
     undoButton.addEventListener("click", () => {
@@ -2100,18 +2137,12 @@ export function initMocaipingGame(root: ParentNode = document) {
     settingsTabTeaching.addEventListener("click", () => setSettingsTab("teaching"));
     easyModeButton.addEventListener("click", () => switchMode("easy"));
     hardModeButton.addEventListener("click", () => switchMode("hard"));
-    audioToggleButton.addEventListener("click", () => {
-      const shouldEnable = !(state.musicOn || state.sfx);
-      unlockAudio();
-      setSoundEnabled(shouldEnable);
-      setMusicEnabled(shouldEnable);
-      showToast(shouldEnable ? "音乐音效已开启" : "音乐音效已关闭");
+    toolbarMusicButton.addEventListener("click", handleMusicGesture);
+    toolbarSoundButton.addEventListener("click", () => {
+      setSoundEnabled(!state.sfx);
+      showToast(state.sfx ? "倒水音效已开启" : "倒水音效已关闭");
     });
-    musicButton.addEventListener("click", () => {
-      unlockAudio();
-      setMusicEnabled(!state.musicOn);
-      showToast(state.musicOn ? "背景音乐已开启" : "背景音乐已关闭");
-    });
+    musicButton.addEventListener("click", handleMusicGesture);
     soundButton.addEventListener("click", () => {
       setSoundEnabled(!state.sfx);
       showToast(state.sfx ? "倒水音效已开启" : "倒水音效已关闭");
@@ -2195,6 +2226,8 @@ export function initMocaipingGame(root: ParentNode = document) {
     setTimeout(resizeCanvas, 250);
     startCoverIntro();
     startFirstGuide();
-    requestAnimationFrame(render);
+    renderFrame = requestAnimationFrame(render);
+
+    return destroyGame;
   
 }
