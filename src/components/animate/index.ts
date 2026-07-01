@@ -1,5 +1,0 @@
-export { default as MotionContainer } from './motion-container'
-export { MotionLazy } from './motion-lazy'
-export { default as MotionPage } from './motion-page'
-export { default as MotionViewport } from './motion-viewport'
-export * from './variants'
