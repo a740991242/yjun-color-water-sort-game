@@ -52,6 +52,10 @@ export function initMocaipingGame(root: ParentNode = document) {
     const coverIntro = root.querySelector("#coverIntro");
     const gameShell = root.querySelector(".game-shell");
     const WATER_AUDIO_URL = "assets/pour-water.mp3";
+    const UI_SFX_URLS = {
+      pick: "assets/pick-bottle.mp3",
+      putDown: "assets/put-down-bottle.mp3"
+    };
     const MUSIC_AUDIO_URLS = {
       m4a: "assets/background-music.m4a",
       mp3: "assets/background-music.mp3"
@@ -1561,7 +1565,7 @@ export function initMocaipingGame(root: ParentNode = document) {
           return;
         }
         state.selected = hit;
-        playTone(460, 0.045, "sine");
+        playUiFileSfx("pick", 460, 0.045, "sine");
         showTeaching(TEACHING_LINES.pick);
         if (state.guideStep === 1) {
           state.guideStep = 2;
@@ -1572,7 +1576,7 @@ export function initMocaipingGame(root: ParentNode = document) {
 
       if (state.selected === hit) {
         state.selected = -1;
-        playTone(330, 0.04, "sine");
+        playUiFileSfx("putDown", 330, 0.04, "sine");
         showTeaching(TEACHING_LINES.sameBottle);
         return;
       }
@@ -1671,6 +1675,24 @@ export function initMocaipingGame(root: ParentNode = document) {
       gain.connect(audioCtx.destination);
       osc.start();
       osc.stop(audioCtx.currentTime + duration + 0.02);
+    }
+
+    function currentUiSfxVolume() {
+      return Math.min(1, 0.92 * state.masterVolume * state.sfxVolume);
+    }
+
+    function playUiFileSfx(key, fallbackFreq, fallbackDuration, fallbackType = "sine") {
+      if (!state.sfx) return;
+      const src = UI_SFX_URLS[key];
+      if (!src) return;
+      const audio = new Audio(src);
+      audio.preload = "auto";
+      audio.volume = currentUiSfxVolume();
+      audio.setAttribute("playsinline", "true");
+      audio.setAttribute("webkit-playsinline", "true");
+      audio.play().catch(() => {
+        playTone(fallbackFreq, fallbackDuration, fallbackType);
+      });
     }
 
     function startWaterNoise() {
@@ -1860,6 +1882,31 @@ export function initMocaipingGame(root: ParentNode = document) {
       return GENERATED_WATER_MAX_GAIN * state.masterVolume * state.sfxVolume;
     }
 
+    function createBackgroundAudio() {
+      const audio = document.createElement("audio");
+      const supportsM4a = audio.canPlayType("audio/mp4; codecs=mp4a.40.2");
+      audio.src = supportsM4a ? MUSIC_AUDIO_URLS.m4a : MUSIC_AUDIO_URLS.mp3;
+      audio.preload = "auto";
+      audio.loop = true;
+      audio.volume = currentMusicVolume();
+      audio.controls = false;
+      audio.autoplay = false;
+      audio.setAttribute("playsinline", "true");
+      audio.setAttribute("webkit-playsinline", "true");
+      audio.style.position = "fixed";
+      audio.style.left = "-9999px";
+      audio.style.top = "0";
+      audio.style.width = "1px";
+      audio.style.height = "1px";
+      audio.style.opacity = "0.01";
+      audio.style.pointerEvents = "none";
+      if (root instanceof Element) {
+        root.appendChild(audio);
+      }
+      audio.load();
+      return audio;
+    }
+
     function duckMusicForWater() {
       if (!state.musicTrack) return;
       state.musicTrack.audio.volume = Math.min(1, currentMusicGain() * WATER_MUSIC_DUCK);
@@ -1894,27 +1941,24 @@ export function initMocaipingGame(root: ParentNode = document) {
 
     function startBackgroundMusic() {
       if (!state.musicOn) return;
-      if (state.musicTrack && !state.musicTrack.stopped) return;
-      const audio = new Audio();
-      const supportsM4a = audio.canPlayType("audio/mp4; codecs=mp4a.40.2");
-      audio.src = supportsM4a ? MUSIC_AUDIO_URLS.m4a : MUSIC_AUDIO_URLS.mp3;
-      audio.preload = "auto";
-      audio.loop = true;
+      if (!state.musicTrack) {
+        state.musicTrack = {
+          kind: "file",
+          audio: createBackgroundAudio(),
+          stopped: true
+        };
+      }
+      if (!state.musicTrack.stopped && !state.musicTrack.audio.paused) return;
+      const music = state.musicTrack;
+      const { audio } = music;
+      music.stopped = false;
       audio.volume = currentMusicVolume();
-      audio.setAttribute("playsinline", "true");
-      const music = {
-        kind: "file",
-        audio,
-        stopped: false
-      };
-      state.musicTrack = music;
       updateAudioDebug();
       const playPromise = audio.play();
       if (playPromise && typeof playPromise.then === "function") {
         playPromise.then(updateAudioDebug).catch(() => {
           if (state.musicTrack !== music) return;
           music.stopped = true;
-          state.musicTrack = null;
           state.musicOn = false;
           showToast("背景音乐被浏览器拦截，请再点一次");
           updateHud();
@@ -1931,7 +1975,6 @@ export function initMocaipingGame(root: ParentNode = document) {
       music.stopped = true;
       music.audio.pause();
       music.audio.currentTime = 0;
-      state.musicTrack = null;
       updateAudioDebug();
     }
 
@@ -2017,6 +2060,10 @@ export function initMocaipingGame(root: ParentNode = document) {
       stopBackgroundMusic();
       stopWaterNoise(true);
       stopTeachingAudio();
+      if (state.musicTrack?.audio) {
+        state.musicTrack.audio.remove();
+        state.musicTrack = null;
+      }
       if (state.audio?.ctx && state.audio.ctx.state !== "closed") {
         state.audio.ctx.close().catch(() => {});
       }
@@ -2056,6 +2103,11 @@ export function initMocaipingGame(root: ParentNode = document) {
       if (!coverIntro) return;
       const coverImage = coverIntro.querySelector(".cover-art");
       let started = false;
+      const coverShownAt = performance.now();
+      const isDesktopCover = window.matchMedia("(min-width: 700px) and (min-aspect-ratio: 1 / 1)").matches;
+      if (coverImage) {
+        coverImage.src = isDesktopCover ? "assets/brand/mocaiping-cover-desktop.png" : "assets/brand/mocaiping-cover-mobile.png";
+      }
       const startOpening = () => {
         if (started) return;
         started = true;
@@ -2067,7 +2119,10 @@ export function initMocaipingGame(root: ParentNode = document) {
           coverIntro.style.display = "none";
         }, 1160);
       };
-      const waitThenOpen = () => setTimeout(startOpening, 680);
+      const waitThenOpen = () => {
+        const visibleMs = performance.now() - coverShownAt;
+        setTimeout(startOpening, Math.max(0, 1800 - visibleMs));
+      };
       if (coverImage && coverImage.complete && coverImage.naturalWidth > 0) {
         waitThenOpen();
       } else if (coverImage) {
@@ -2081,13 +2136,20 @@ export function initMocaipingGame(root: ParentNode = document) {
 
     [canvas, toolbarSoundButton, soundButton].forEach((target) => {
       if (!target) return;
-      target.addEventListener("pointerdown", () => unlockAudio(), { passive: true });
-      target.addEventListener("touchstart", () => unlockAudio(), { passive: true });
+      target.addEventListener("pointerdown", () => {
+        unlockAudio();
+      }, { passive: true });
+      target.addEventListener("touchstart", () => {
+        unlockAudio();
+      }, { passive: true });
     });
 
     let lastMusicGestureAt = 0;
 
-    function handleMusicGesture() {
+    function handleMusicGesture(event) {
+      if (event?.type === "touchend") {
+        event.preventDefault();
+      }
       const now = performance.now();
       if (now - lastMusicGestureAt < 420) return;
       lastMusicGestureAt = now;
@@ -2095,7 +2157,27 @@ export function initMocaipingGame(root: ParentNode = document) {
       showToast(state.musicOn ? "背景音乐已开启" : "背景音乐已关闭");
     }
 
-    canvas.addEventListener("click", handleCanvasClick);
+    let lastCanvasGestureAt = 0;
+    function handleCanvasGesture(event) {
+      if (event.type === "pointerup" && event.pointerType === "touch") {
+        event.preventDefault();
+      }
+      if (event.type === "touchend") {
+        event.preventDefault();
+      }
+      const now = performance.now();
+      if (now - lastCanvasGestureAt < 120) return;
+      lastCanvasGestureAt = now;
+      const inputEvent = event.changedTouches ? event.changedTouches[0] : event;
+      handleCanvasClick(inputEvent);
+    }
+
+    if (window.PointerEvent) {
+      canvas.addEventListener("pointerup", handleCanvasGesture, { passive: false });
+    } else {
+      canvas.addEventListener("touchend", handleCanvasGesture, { passive: false });
+      canvas.addEventListener("click", handleCanvasGesture);
+    }
     undoButton.addEventListener("click", () => {
       if (!state.history.length || state.animation) return;
       restore(state.history.pop());
@@ -2137,11 +2219,13 @@ export function initMocaipingGame(root: ParentNode = document) {
     settingsTabTeaching.addEventListener("click", () => setSettingsTab("teaching"));
     easyModeButton.addEventListener("click", () => switchMode("easy"));
     hardModeButton.addEventListener("click", () => switchMode("hard"));
+    toolbarMusicButton.addEventListener("touchend", handleMusicGesture, { passive: false });
     toolbarMusicButton.addEventListener("click", handleMusicGesture);
     toolbarSoundButton.addEventListener("click", () => {
       setSoundEnabled(!state.sfx);
       showToast(state.sfx ? "倒水音效已开启" : "倒水音效已关闭");
     });
+    musicButton.addEventListener("touchend", handleMusicGesture, { passive: false });
     musicButton.addEventListener("click", handleMusicGesture);
     soundButton.addEventListener("click", () => {
       setSoundEnabled(!state.sfx);
@@ -2219,6 +2303,12 @@ export function initMocaipingGame(root: ParentNode = document) {
     }
 
     loadPreferences();
+    state.musicTrack = {
+      kind: "file",
+      audio: createBackgroundAudio(),
+      stopped: true
+    };
+    applyMasterVolume();
     loadLevel(state.levelIndex);
     syncAppHeight();
     resizeCanvas();
