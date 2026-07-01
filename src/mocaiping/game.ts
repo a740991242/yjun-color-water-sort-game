@@ -1023,6 +1023,36 @@ export function initMocaipingGame(root: ParentNode = document) {
         ctx.rotate(celebration.angle);
         ctx.translate(-x, -(y + h * 0.55));
       }
+
+      if (selected) {
+        const pulse = 0.55 + Math.sin(performance.now() / 150) * 0.12;
+        ctx.save();
+        ctx.globalAlpha = pulse;
+        ctx.fillStyle = "rgba(255, 246, 139, 0.34)";
+        ctx.beginPath();
+        ctx.ellipse(x, y + h + 8, w * 0.6, 8, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.62)";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      if (layout.shake) {
+        const alertAlpha = Math.min(0.52, 0.14 + layout.shake / 24);
+        ctx.save();
+        ctx.globalAlpha = alertAlpha;
+        ctx.strokeStyle = "#fff2a8";
+        ctx.lineWidth = 3;
+        roundedRectPath(bodyX - 7, bodyY - 7, w + 14, bodyH + 14, 18);
+        ctx.stroke();
+        ctx.strokeStyle = "rgba(255, 94, 138, 0.48)";
+        ctx.lineWidth = 5;
+        roundedRectPath(bodyX - 10, bodyY - 10, w + 20, bodyH + 20, 20);
+        ctx.stroke();
+        ctx.restore();
+      }
+
       ctx.shadowColor = selected ? "rgba(255,255,255,0.9)" : "rgba(80,40,80,0.18)";
       ctx.shadowBlur = selected ? 18 : 8;
       ctx.shadowOffsetY = selected ? 0 : 8;
@@ -2129,7 +2159,9 @@ export function initMocaipingGame(root: ParentNode = document) {
       stopWaterNoise(true);
       stopTeachingAudio();
       if (state.musicTrack?.audio) {
-        state.musicTrack.audio.remove();
+        if (typeof state.musicTrack.audio.remove === "function") {
+          state.musicTrack.audio.remove();
+        }
         state.musicTrack = null;
       }
       if (state.audio?.ctx && state.audio.ctx.state !== "closed") {
