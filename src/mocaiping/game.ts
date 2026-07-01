@@ -371,6 +371,47 @@ export function initMocaipingGame(root: ParentNode = document) {
       return Math.max(min, Math.min(max, value));
     }
 
+    function rotatedBottleBounds(x, y, width, height, angle) {
+      const cos = Math.cos(angle);
+      const sin = Math.sin(angle);
+      const points = [
+        { x: -width / 2, y: 0 },
+        { x: width / 2, y: 0 },
+        { x: -width / 2, y: height },
+        { x: width / 2, y: height }
+      ].map((point) => ({
+        x: x + point.x * cos - point.y * sin,
+        y: y + point.x * sin + point.y * cos
+      }));
+
+      return points.reduce(
+        (bounds, point) => ({
+          minX: Math.min(bounds.minX, point.x),
+          maxX: Math.max(bounds.maxX, point.x),
+          minY: Math.min(bounds.minY, point.y),
+          maxY: Math.max(bounds.maxY, point.y)
+        }),
+        { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity }
+      );
+    }
+
+    function keepPourBottleInView(x, y, width, height, angle) {
+      const margin = Math.min(28, Math.max(16, canvas.clientWidth * 0.045));
+      const bottomMargin = 10;
+      const bounds = rotatedBottleBounds(x, y, width, height, angle);
+      let dx = 0;
+      let dy = 0;
+
+      if (bounds.minX < margin) dx += margin - bounds.minX;
+      if (bounds.maxX + dx > canvas.clientWidth - margin) dx -= bounds.maxX + dx - (canvas.clientWidth - margin);
+      if (bounds.minY < margin) dy += margin - bounds.minY;
+      if (bounds.maxY + dy > canvas.clientHeight - bottomMargin) {
+        dy -= bounds.maxY + dy - (canvas.clientHeight - bottomMargin);
+      }
+
+      return { x: x + dx, y: y + dy };
+    }
+
     function levelKey(index = state.levelIndex, mode = state.mode) {
       return `${mode}-${index}`;
     }
@@ -1146,14 +1187,19 @@ export function initMocaipingGame(root: ParentNode = document) {
       const flowProgress = Math.max(0, Math.min(1, (raw - 0.24) / 0.54));
       const liquidProgress = easeInOut(flowProgress);
       const scale = 0.78;
-      const sideGap = target.width * 1.35;
+      const edgeZone = Math.max(target.width * 1.7, canvas.clientWidth * 0.22);
+      const leftEdgePull = clamp((edgeZone - target.x) / edgeZone, 0, 1);
+      const rightEdgePull = clamp((target.x - (canvas.clientWidth - edgeZone)) / edgeZone, 0, 1);
+      const edgePull = Math.max(leftEdgePull, rightEdgePull);
+      const sideGap = target.width * (1.45 + edgePull * 0.42);
       const perchY = Math.max(18, Math.min(target.y - target.height * 0.82, canvas.clientHeight - target.height * 1.1));
-      const defaultSide = source.x <= target.x ? -1 : 1;
+      let defaultSide = source.x <= target.x ? -1 : 1;
+      if (leftEdgePull > 0.35) defaultSide = 1;
+      if (rightEdgePull > 0.35) defaultSide = -1;
+      const safeXMin = Math.min(canvas.clientWidth / 2, target.width * (1.05 + edgePull * 0.6));
+      const safeXMax = Math.max(canvas.clientWidth / 2, canvas.clientWidth - target.width * (1.05 + edgePull * 0.6));
       const sideChoices = [-1, 1].map((side) => {
-        const x = Math.max(
-          source.width * 0.8,
-          Math.min(canvas.clientWidth - source.width * 0.8, target.x + side * sideGap)
-        );
+        const x = clamp(target.x + side * sideGap, safeXMin, safeXMax);
         const overlapPenalty = state.layouts.reduce((score, layout, index) => {
           if (index === anim.from || index === anim.to) return score;
           const dx = Math.abs(layout.x - x);
@@ -1162,29 +1208,30 @@ export function initMocaipingGame(root: ParentNode = document) {
           if (dx < source.width * 1.6 && dy < source.height * 1.25) return score + 3;
           return score;
         }, 0);
-        const edgePenalty = x < source.width || x > canvas.clientWidth - source.width ? 2 : 0;
-        const preferencePenalty = side === defaultSide ? 0 : 1;
-        return { side, x, score: overlapPenalty + edgePenalty + preferencePenalty };
+        const edgePenalty = x < source.width * 1.15 || x > canvas.clientWidth - source.width * 1.15 ? 6 : 0;
+        const outwardEdgePenalty = leftEdgePull > 0.35 && side < 0 ? 12 : rightEdgePull > 0.35 && side > 0 ? 12 : 0;
+        const preferencePenalty = side === defaultSide ? 0 : 1.5;
+        return { side, x, score: overlapPenalty + edgePenalty + outwardEdgePenalty + preferencePenalty };
       }).sort((a, b) => a.score - b.score);
       const bottleSide = sideChoices[0].side;
-      const perchX = Math.max(
-        source.width * 0.8,
-        Math.min(canvas.clientWidth - source.width * 0.8, sideChoices[0].x)
-      );
+      const perchX = clamp(sideChoices[0].x, safeXMin, safeXMax);
       const moveX = source.x + (perchX - source.x) * travel;
       const moveY = source.y + (perchY - source.y) * travel - Math.sin(Math.PI * travel) * 24;
       const settleX = moveX + (source.x - moveX) * returnBack;
       const settleY = moveY + (source.y - moveY) * returnBack;
-      const angle = -bottleSide * 0.86 * pour * (1 - returnBack);
+      const angle = -bottleSide * (0.86 - edgePull * 0.08) * pour * (1 - returnBack);
       const bottle = state.bottles[anim.from];
+      const animatedWidth = source.width * scale;
+      const animatedHeight = source.height * scale;
+      const visiblePosition = keepPourBottleInView(settleX, settleY, animatedWidth, animatedHeight, angle);
 
       ctx.save();
-      ctx.translate(settleX, settleY);
+      ctx.translate(visiblePosition.x, visiblePosition.y);
       ctx.rotate(angle);
       ctx.globalAlpha = 0.94;
       drawBottle(
         bottle,
-        { x: 0, y: 0, width: source.width * scale, height: source.height * scale },
+        { x: 0, y: 0, width: animatedWidth, height: animatedHeight },
         -99,
         null,
         { hideBadge: true, drainUnits: anim.amount * liquidProgress }
@@ -1199,18 +1246,39 @@ export function initMocaipingGame(root: ParentNode = document) {
       });
 
       if (pour > 0.08 && raw < 0.82) {
-        const startX = settleX - bottleSide * source.width * 0.43;
-        const startY = settleY + source.height * 0.28;
+        const spoutLocalX = -bottleSide * animatedWidth * 0.46;
+        const spoutLocalY = animatedHeight * 0.18;
+        const cos = Math.cos(angle);
+        const sin = Math.sin(angle);
+        const startX = visiblePosition.x + spoutLocalX * cos - spoutLocalY * sin;
+        const startY = visiblePosition.y + spoutLocalX * sin + spoutLocalY * cos;
         const endX = target.x;
         const endY = target.y + target.height * 0.36;
+        const controlX = (startX + endX) / 2 + bottleSide * target.width * 0.16;
+        const controlY = Math.min(startY, endY) + 38 - edgePull * 8;
         ctx.save();
+        ctx.strokeStyle = "rgba(255,255,255,0.42)";
+        ctx.lineWidth = 8;
+        ctx.lineCap = "round";
+        ctx.globalAlpha = 0.35;
+        ctx.beginPath();
+        ctx.moveTo(startX, startY);
+        ctx.quadraticCurveTo(controlX, controlY, endX, endY);
+        ctx.stroke();
         ctx.strokeStyle = COLORS[anim.color];
         ctx.lineWidth = 5;
         ctx.lineCap = "round";
         ctx.globalAlpha = 0.78;
         ctx.beginPath();
         ctx.moveTo(startX, startY);
-        ctx.quadraticCurveTo((startX + endX) / 2, Math.min(startY, endY) + 42, endX, endY);
+        ctx.quadraticCurveTo(controlX, controlY, endX, endY);
+        ctx.stroke();
+        ctx.strokeStyle = "rgba(255,255,255,0.55)";
+        ctx.lineWidth = 1.4;
+        ctx.globalAlpha = 0.55;
+        ctx.beginPath();
+        ctx.moveTo(startX, startY);
+        ctx.quadraticCurveTo(controlX, controlY, endX, endY);
         ctx.stroke();
         ctx.restore();
 
