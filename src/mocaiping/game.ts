@@ -56,14 +56,9 @@ export function initMocaipingGame(root: ParentNode = document) {
       pick: "assets/pick-bottle.mp3",
       putDown: "assets/put-down-bottle.mp3"
     };
-    const MUSIC_AUDIO_URLS = {
-      m4a: "assets/background-music.m4a",
-      mp3: "assets/background-music.mp3"
-    };
+    const MUSIC_AUDIO_URL = "assets/background-music.mp3";
     const MUSIC_MAX_GAIN = 1.65;
-    const SFX_MAX_GAIN = 0.08;
     const WATER_FILE_MAX_VOLUME = 1;
-    const GENERATED_WATER_MAX_GAIN = 0.135;
     const WATER_MUSIC_DUCK = 0.28;
     const SAVE_KEY = "mocaiping-settings-v4";
     const GUIDE_KEY = "mocaiping-first-guide-seen";
@@ -749,13 +744,11 @@ export function initMocaipingGame(root: ParentNode = document) {
       const hint = findHintMove();
       if (!hint) {
         showToast("这一步没有可倒的瓶子，试试重开");
-        playTone(180, 0.08, "square");
         return;
       }
       state.selected = -1;
       state.hint = { from: hint.from, to: hint.to, until: performance.now() + 2600 };
       showToast(`提示：${bottleLabel(hint.from)} → ${bottleLabel(hint.to)}`);
-      playTone(560, 0.07, "sine");
     }
 
     function hasSeenGuide() {
@@ -1216,24 +1209,27 @@ export function initMocaipingGame(root: ParentNode = document) {
       const returnBack = easeInOut(Math.max(0, Math.min(1, (raw - 0.78) / 0.22)));
       const flowProgress = Math.max(0, Math.min(1, (raw - 0.24) / 0.54));
       const liquidProgress = easeInOut(flowProgress);
-      const scale = 0.78;
+      const scale = 0.74;
+      const bottle = state.bottles[anim.from];
+      const animatedWidth = source.width * scale;
+      const animatedHeight = source.height * scale;
       const edgeZone = Math.max(target.width * 1.7, canvas.clientWidth * 0.22);
       const leftEdgePull = clamp((edgeZone - target.x) / edgeZone, 0, 1);
       const rightEdgePull = clamp((target.x - (canvas.clientWidth - edgeZone)) / edgeZone, 0, 1);
       const edgePull = Math.max(leftEdgePull, rightEdgePull);
-      const sideGap = target.width * (1.45 + edgePull * 0.42);
-      const perchY = Math.max(18, Math.min(target.y - target.height * 0.82, canvas.clientHeight - target.height * 1.1));
+      const sideGap = target.width * (1.55 + edgePull * 0.28);
+      const perchBaseY = clamp(target.y - target.height * 0.62, 22, canvas.clientHeight - target.height * 1.12);
       let defaultSide = source.x <= target.x ? -1 : 1;
       if (leftEdgePull > 0.35) defaultSide = 1;
       if (rightEdgePull > 0.35) defaultSide = -1;
-      const safeXMin = Math.min(canvas.clientWidth / 2, target.width * (1.05 + edgePull * 0.6));
-      const safeXMax = Math.max(canvas.clientWidth / 2, canvas.clientWidth - target.width * (1.05 + edgePull * 0.6));
+      const safeXMin = animatedWidth * 0.92;
+      const safeXMax = canvas.clientWidth - animatedWidth * 0.92;
       const sideChoices = [-1, 1].map((side) => {
         const x = clamp(target.x + side * sideGap, safeXMin, safeXMax);
         const overlapPenalty = state.layouts.reduce((score, layout, index) => {
           if (index === anim.from || index === anim.to) return score;
           const dx = Math.abs(layout.x - x);
-          const dy = Math.abs(layout.y - perchY);
+          const dy = Math.abs(layout.y - perchBaseY);
           if (dx < source.width * 1.25 && dy < source.height * 1.05) return score + 10;
           if (dx < source.width * 1.6 && dy < source.height * 1.25) return score + 3;
           return score;
@@ -1244,15 +1240,33 @@ export function initMocaipingGame(root: ParentNode = document) {
         return { side, x, score: overlapPenalty + edgePenalty + outwardEdgePenalty + preferencePenalty };
       }).sort((a, b) => a.score - b.score);
       const bottleSide = sideChoices[0].side;
-      const perchX = clamp(sideChoices[0].x, safeXMin, safeXMax);
+      const angle = -bottleSide * (0.72 - edgePull * 0.04) * pour * (1 - returnBack);
+      const spoutLocalX = -bottleSide * animatedWidth * 0.48;
+      const spoutLocalY = animatedHeight * 0.15;
+      const cos = Math.cos(angle);
+      const sin = Math.sin(angle);
+      const spoutOffsetX = spoutLocalX * cos - spoutLocalY * sin;
+      const spoutOffsetY = spoutLocalX * sin + spoutLocalY * cos;
+      const desiredSpoutX = clamp(
+        target.x + bottleSide * target.width * 0.38,
+        target.width * 0.42,
+        canvas.clientWidth - target.width * 0.42
+      );
+      const idealPerchX = desiredSpoutX - spoutOffsetX;
+      const idealPerchY = perchBaseY;
+      const perchedPosition = keepPourBottleInView(
+        clamp(idealPerchX, safeXMin, safeXMax),
+        idealPerchY,
+        animatedWidth,
+        animatedHeight,
+        angle
+      );
+      const perchX = perchedPosition.x;
+      const perchY = Math.min(perchedPosition.y, target.y - target.height * 0.34);
       const moveX = source.x + (perchX - source.x) * travel;
       const moveY = source.y + (perchY - source.y) * travel - Math.sin(Math.PI * travel) * 24;
       const settleX = moveX + (source.x - moveX) * returnBack;
       const settleY = moveY + (source.y - moveY) * returnBack;
-      const angle = -bottleSide * (0.86 - edgePull * 0.08) * pour * (1 - returnBack);
-      const bottle = state.bottles[anim.from];
-      const animatedWidth = source.width * scale;
-      const animatedHeight = source.height * scale;
       const visiblePosition = keepPourBottleInView(settleX, settleY, animatedWidth, animatedHeight, angle);
 
       ctx.save();
@@ -1276,29 +1290,25 @@ export function initMocaipingGame(root: ParentNode = document) {
       });
 
       if (pour > 0.08 && raw < 0.82) {
-        const spoutLocalX = -bottleSide * animatedWidth * 0.46;
-        const spoutLocalY = animatedHeight * 0.18;
-        const cos = Math.cos(angle);
-        const sin = Math.sin(angle);
         const startX = visiblePosition.x + spoutLocalX * cos - spoutLocalY * sin;
         const startY = visiblePosition.y + spoutLocalX * sin + spoutLocalY * cos;
         const endX = target.x;
-        const endY = target.y + target.height * 0.36;
-        const controlX = (startX + endX) / 2 + bottleSide * target.width * 0.16;
-        const controlY = Math.min(startY, endY) + 38 - edgePull * 8;
+        const endY = target.y + target.height * 0.26;
+        const controlX = startX * 0.45 + endX * 0.55;
+        const controlY = Math.min(startY, endY) + 24 - edgePull * 5;
         ctx.save();
         ctx.strokeStyle = "rgba(255,255,255,0.42)";
-        ctx.lineWidth = 8;
+        ctx.lineWidth = 6.5;
         ctx.lineCap = "round";
-        ctx.globalAlpha = 0.35;
+        ctx.globalAlpha = 0.28;
         ctx.beginPath();
         ctx.moveTo(startX, startY);
         ctx.quadraticCurveTo(controlX, controlY, endX, endY);
         ctx.stroke();
         ctx.strokeStyle = COLORS[anim.color];
-        ctx.lineWidth = 5;
+        ctx.lineWidth = 4.2;
         ctx.lineCap = "round";
-        ctx.globalAlpha = 0.78;
+        ctx.globalAlpha = 0.72;
         ctx.beginPath();
         ctx.moveTo(startX, startY);
         ctx.quadraticCurveTo(controlX, controlY, endX, endY);
@@ -1546,7 +1556,6 @@ export function initMocaipingGame(root: ParentNode = document) {
         state.failed = true;
         showToast("时间到，重开试试");
         showTeaching(TEACHING_LINES.timeUp);
-        playTone(140, 0.18, "sawtooth");
         updateHud();
         return;
       }
@@ -1629,8 +1638,6 @@ export function initMocaipingGame(root: ParentNode = document) {
         if (!hasNextLevel) {
           startFinale();
         }
-        playTone(660, 0.12, "sine");
-        setTimeout(() => playTone(880, 0.14, "sine"), 120);
         showResult(stars, hasNextLevel);
         savePreferences();
       }
@@ -1663,7 +1670,7 @@ export function initMocaipingGame(root: ParentNode = document) {
           return;
         }
         state.selected = hit;
-        playUiFileSfx("pick", 460, 0.045, "sine");
+        playUiFileSfx("pick");
         showTeaching(TEACHING_LINES.pick);
         if (state.guideStep === 1) {
           state.guideStep = 2;
@@ -1674,7 +1681,7 @@ export function initMocaipingGame(root: ParentNode = document) {
 
       if (state.selected === hit) {
         state.selected = -1;
-        playUiFileSfx("putDown", 330, 0.04, "sine");
+        playUiFileSfx("putDown");
         showTeaching(TEACHING_LINES.sameBottle);
         return;
       }
@@ -1708,24 +1715,10 @@ export function initMocaipingGame(root: ParentNode = document) {
       state.selected = -1;
       if (state.layouts[index]) state.layouts[index].shake = 7;
       showToast(reason);
-      playTone(190, 0.08, "square");
     }
 
     function easeInOut(t) {
       return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
-    }
-
-    function primeAudioContext() {
-      if (!state.audio || state.audio.primed) return;
-      const audioCtx = state.audio.ctx;
-      const pulse = audioCtx.createOscillator();
-      const gain = audioCtx.createGain();
-      gain.gain.value = 0.0001;
-      pulse.connect(gain);
-      gain.connect(audioCtx.destination);
-      pulse.start(audioCtx.currentTime);
-      pulse.stop(audioCtx.currentTime + 0.01);
-      state.audio.primed = true;
     }
 
     function unlockAudio(onReady) {
@@ -1756,30 +1749,11 @@ export function initMocaipingGame(root: ParentNode = document) {
       markReady();
     }
 
-    function playTone(freq, duration, type) {
-      if (!state.sfx) return;
-      unlockAudio();
-      if (!state.audio) return;
-      const audioCtx = state.audio.ctx;
-      const osc = audioCtx.createOscillator();
-      const gain = audioCtx.createGain();
-      osc.frequency.value = freq;
-      osc.type = type;
-      const peak = Math.max(0.0001, currentSfxGain());
-      gain.gain.setValueAtTime(0.0001, audioCtx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(peak, audioCtx.currentTime + 0.01);
-      gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
-      osc.connect(gain);
-      gain.connect(audioCtx.destination);
-      osc.start();
-      osc.stop(audioCtx.currentTime + duration + 0.02);
-    }
-
     function currentUiSfxVolume() {
       return Math.min(1, 0.92 * state.masterVolume * state.sfxVolume);
     }
 
-    function playUiFileSfx(key, fallbackFreq, fallbackDuration, fallbackType = "sine") {
+    function playUiFileSfx(key) {
       if (!state.sfx) return;
       const src = UI_SFX_URLS[key];
       if (!src) return;
@@ -1788,9 +1762,7 @@ export function initMocaipingGame(root: ParentNode = document) {
       audio.volume = currentUiSfxVolume();
       audio.setAttribute("playsinline", "true");
       audio.setAttribute("webkit-playsinline", "true");
-      audio.play().catch(() => {
-        playTone(fallbackFreq, fallbackDuration, fallbackType);
-      });
+      audio.play().catch(() => {});
     }
 
     function startWaterNoise() {
@@ -1816,104 +1788,7 @@ export function initMocaipingGame(root: ParentNode = document) {
         clearInterval(fadeTimer);
         if (!state.audio || !state.audio.water || state.audio.water.audio !== audio) return;
         state.audio.water = null;
-        startGeneratedWaterNoise();
       });
-    }
-
-    function startGeneratedWaterNoise() {
-      if (!state.sfx) return;
-      unlockAudio();
-      if (!state.audio) return;
-      stopWaterNoise(true);
-      const audioCtx = state.audio.ctx;
-      const master = audioCtx.createGain();
-      master.gain.setValueAtTime(0.0001, audioCtx.currentTime);
-      master.gain.exponentialRampToValueAtTime(Math.max(0.0001, currentGeneratedWaterGain()), audioCtx.currentTime + 0.1);
-      master.connect(audioCtx.destination);
-
-      const makeNoiseSource = (seconds) => {
-        const buffer = audioCtx.createBuffer(1, Math.floor(audioCtx.sampleRate * seconds), audioCtx.sampleRate);
-        const data = buffer.getChannelData(0);
-        let last = 0;
-        for (let i = 0; i < data.length; i += 1) {
-          const white = Math.random() * 2 - 1;
-          last = last * 0.72 + white * 0.28;
-          data[i] = last;
-        }
-        const source = audioCtx.createBufferSource();
-        source.buffer = buffer;
-        source.loop = true;
-        return source;
-      };
-
-      const stream = makeNoiseSource(1.6);
-      const streamFilter = audioCtx.createBiquadFilter();
-      const streamGain = audioCtx.createGain();
-      streamFilter.type = "bandpass";
-      streamFilter.frequency.value = 520;
-      streamFilter.Q.value = 0.55;
-      streamGain.gain.value = 0.48;
-      stream.connect(streamFilter);
-      streamFilter.connect(streamGain);
-      streamGain.connect(master);
-
-      const fizz = makeNoiseSource(0.55);
-      const fizzFilter = audioCtx.createBiquadFilter();
-      const fizzGain = audioCtx.createGain();
-      fizzFilter.type = "lowpass";
-      fizzFilter.frequency.value = 1600;
-      fizzGain.gain.value = 0.035;
-      fizz.connect(fizzFilter);
-      fizzFilter.connect(fizzGain);
-      fizzGain.connect(master);
-
-      const gurgle = audioCtx.createOscillator();
-      const gurgleFilter = audioCtx.createBiquadFilter();
-      const gurgleGain = audioCtx.createGain();
-      gurgle.type = "sine";
-      gurgle.frequency.setValueAtTime(58, audioCtx.currentTime);
-      gurgle.frequency.linearRampToValueAtTime(74, audioCtx.currentTime + 0.28);
-      gurgleFilter.type = "lowpass";
-      gurgleFilter.frequency.value = 120;
-      gurgleGain.gain.value = 0.075;
-      gurgle.connect(gurgleFilter);
-      gurgleFilter.connect(gurgleGain);
-      gurgleGain.connect(master);
-
-      const dripTimer = setInterval(() => {
-        if (!state.audio || !state.audio.water || state.audio.water.kind !== "generated") return;
-        const t = audioCtx.currentTime;
-        const osc = audioCtx.createOscillator();
-        const osc2 = audioCtx.createOscillator();
-        const filter = audioCtx.createBiquadFilter();
-        const gain = audioCtx.createGain();
-        const bubbleFreq = 74 + Math.random() * 54;
-        osc.type = "sine";
-        osc2.type = "sine";
-        osc.frequency.setValueAtTime(bubbleFreq, t);
-        osc.frequency.exponentialRampToValueAtTime(bubbleFreq * 0.58, t + 0.16);
-        osc2.frequency.setValueAtTime(bubbleFreq * 1.48, t);
-        osc2.frequency.exponentialRampToValueAtTime(bubbleFreq * 0.82, t + 0.13);
-        filter.type = "lowpass";
-        filter.frequency.setValueAtTime(210, t);
-        filter.frequency.exponentialRampToValueAtTime(95, t + 0.2);
-        gain.gain.setValueAtTime(0.0001, t);
-        gain.gain.exponentialRampToValueAtTime(0.035 + Math.random() * 0.02, t + 0.024);
-        gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.2);
-        osc.connect(filter);
-        osc2.connect(filter);
-        filter.connect(gain);
-        gain.connect(master);
-        osc.start(t);
-        osc2.start(t);
-        osc.stop(t + 0.2);
-        osc2.stop(t + 0.2);
-      }, 180);
-
-      stream.start();
-      fizz.start();
-      gurgle.start();
-      state.audio.water = { kind: "generated", sources: [stream, fizz, gurgle], gain: master, dripTimer };
     }
 
     function stopWaterNoise(force = false) {
@@ -1921,31 +1796,15 @@ export function initMocaipingGame(root: ParentNode = document) {
       const water = state.audio.water;
       state.audio.water = null;
       restoreMusicAfterWater();
-      if (water.kind === "file") {
-        const { audio, fadeTimer, fadeOutTimer } = water;
-        clearInterval(fadeTimer);
-        clearInterval(fadeOutTimer);
-        if (force) {
-          audio.pause();
-          audio.currentTime = 0;
-          return;
-        }
-        fadeOutWaterFile(audio);
+      const { audio, fadeTimer, fadeOutTimer } = water;
+      clearInterval(fadeTimer);
+      clearInterval(fadeOutTimer);
+      if (force) {
+        audio.pause();
+        audio.currentTime = 0;
         return;
       }
-
-      const { sources, gain, dripTimer } = water;
-      clearInterval(dripTimer);
-      gain.gain.exponentialRampToValueAtTime(0.0001, state.audio.ctx.currentTime + 0.08);
-      setTimeout(() => {
-        sources.forEach((source) => {
-          try {
-            source.stop();
-          } catch (error) {
-            // Source may already be stopped if the browser cleaned up the node.
-          }
-        });
-      }, 120);
+      fadeOutWaterFile(audio);
     }
 
     function fadeOutWaterFile(audio) {
@@ -1968,22 +1827,13 @@ export function initMocaipingGame(root: ParentNode = document) {
       return Math.min(1, currentMusicGain());
     }
 
-    function currentSfxGain() {
-      return SFX_MAX_GAIN * state.masterVolume * state.sfxVolume;
-    }
-
     function currentWaterFileVolume() {
       return Math.min(1, WATER_FILE_MAX_VOLUME * state.masterVolume * state.sfxVolume);
     }
 
-    function currentGeneratedWaterGain() {
-      return GENERATED_WATER_MAX_GAIN * state.masterVolume * state.sfxVolume;
-    }
-
     function createBackgroundAudio() {
       const audio = document.createElement("audio");
-      const supportsM4a = audio.canPlayType("audio/mp4; codecs=mp4a.40.2");
-      audio.src = supportsM4a ? MUSIC_AUDIO_URLS.m4a : MUSIC_AUDIO_URLS.mp3;
+      audio.src = MUSIC_AUDIO_URL;
       audio.preload = "auto";
       audio.loop = true;
       audio.volume = currentMusicVolume();
@@ -2023,14 +1873,8 @@ export function initMocaipingGame(root: ParentNode = document) {
         if (state.teachingAudio) state.teachingAudio.volume = currentTeachingVoiceVolume();
         return;
       }
-      const audioCtx = state.audio.ctx;
       if (state.audio.water && state.audio.water.kind === "file") {
         state.audio.water.audio.volume = currentWaterFileVolume();
-      }
-      if (state.audio.water && state.audio.water.kind === "generated") {
-        const gain = Math.max(0.0001, currentGeneratedWaterGain());
-        state.audio.water.gain.gain.cancelScheduledValues(audioCtx.currentTime);
-        state.audio.water.gain.gain.setTargetAtTime(gain, audioCtx.currentTime, 0.035);
       }
       if (state.teachingAudio) {
         state.teachingAudio.volume = currentTeachingVoiceVolume();
