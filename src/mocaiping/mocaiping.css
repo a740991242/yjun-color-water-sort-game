@@ -737,6 +737,143 @@
       }
     }
 
+    /* ---- Cover Home Screen ---- */
+
+    .cover-screen {
+      position: fixed;
+      inset: 0;
+      z-index: 10;
+      overflow: hidden;
+      background: #f7e8f2;
+    }
+
+    .cover-screen .cover-art {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .cover-mode-segmented {
+      position: absolute;
+      left: 50%;
+      bottom: calc(env(safe-area-inset-bottom, 0px) + clamp(86px, 10.4vh, 104px));
+      transform: translateX(-50%);
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      align-items: stretch;
+      width: min(40vw, 190px);
+      min-width: 150px;
+      height: clamp(34px, 4.4vh, 40px);
+      z-index: 2;
+      overflow: hidden;
+      border-radius: 18px;
+      background: #dff6ff;
+      box-shadow: 0 5px 0 rgba(34, 127, 176, 0.24);
+    }
+
+    .cover-mode-segmented > div {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      border: 0;
+      padding: 0;
+      border-radius: 0;
+      font-size: clamp(13px, 3.8vw, 15px);
+      font-weight: 900;
+      line-height: 1;
+      cursor: pointer;
+      background: #dff6ff;
+      color: #0c7fb0;
+      text-align: center;
+      transition: background 160ms ease, color 160ms ease;
+    }
+
+    .cover-mode-segmented > div.is-active {
+      background: #f85da0;
+      color: #fff;
+    }
+
+    .cover-start-button {
+      position: absolute;
+      left: 50%;
+      bottom: calc(env(safe-area-inset-bottom, 0px) + clamp(16px, 2.6vh, 24px));
+      transform: translateX(-50%);
+      width: min(82vw, 360px);
+      height: clamp(52px, 6.8vh, 58px);
+      border: 0;
+      border-radius: 28px;
+      background: linear-gradient(180deg, #ff73ad, #f84d96);
+      color: #fff;
+      font-size: clamp(20px, 5.4vw, 24px);
+      font-weight: 900;
+      cursor: pointer;
+      box-shadow: 0 8px 0 rgba(177, 55, 115, 0.28);
+      transition: transform 120ms ease, box-shadow 120ms ease, filter 120ms ease;
+      z-index: 2;
+    }
+
+    .cover-start-button:hover {
+      filter: brightness(1.04);
+    }
+
+    .cover-start-button:active {
+      transform: translateX(-50%) translateY(4px);
+      box-shadow: 0 4px 0 rgba(177, 55, 115, 0.3);
+    }
+
+    /* ---- Opening Curtain Animation ---- */
+
+    .opening-curtain {
+      position: fixed;
+      inset: 0;
+      z-index: 20;
+      pointer-events: none;
+      overflow: hidden;
+    }
+
+    .curtain-left,
+    .curtain-right {
+      position: absolute;
+      top: 0;
+      width: 50%;
+      height: 100%;
+      background-size: 200% 100%;
+      background-repeat: no-repeat;
+      animation-duration: 860ms;
+      animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+      animation-fill-mode: forwards;
+    }
+
+    .curtain-left {
+      left: 0;
+      background-position: left center;
+      animation-name: curtainLeftOpen;
+    }
+
+    .curtain-right {
+      right: 0;
+      background-position: right center;
+      animation-name: curtainRightOpen;
+    }
+
+    @keyframes curtainLeftOpen {
+      to {
+        transform: translateX(-102%);
+      }
+    }
+
+    @keyframes curtainRightOpen {
+      to {
+        transform: translateX(102%);
+      }
+    }
+
+    /* ---- Original Cover Intro (kept for potential reuse) ---- */
+
     @media (max-width: 540px) {
       body {
         place-items: start center;

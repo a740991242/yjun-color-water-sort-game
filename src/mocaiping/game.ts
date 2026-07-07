@@ -1,5 +1,5 @@
 // @ts-nocheck
-export function initMocaipingGame(root: ParentNode = document) {
+export function initMocaipingGame(root: ParentNode = document, options?: { initialMode?: 'easy' | 'hard' }) {
     if (typeof window.__mocaipingDestroyCurrent === "function") {
       window.__mocaipingDestroyCurrent();
     }
@@ -2247,6 +2247,9 @@ export function initMocaipingGame(root: ParentNode = document) {
     }
 
     loadPreferences();
+    if (options?.initialMode && MODES[options.initialMode]) {
+      state.mode = options.initialMode;
+    }
     state.musicTrack = {
       kind: "file",
       audio: createBackgroundAudio(),
@@ -2258,7 +2261,6 @@ export function initMocaipingGame(root: ParentNode = document) {
     resizeCanvas();
     requestAnimationFrame(resizeCanvas);
     setTimeout(resizeCanvas, 250);
-    startCoverIntro();
     startFirstGuide();
     renderFrame = requestAnimationFrame(render);
 
