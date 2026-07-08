@@ -1753,11 +1753,23 @@ export function initMocaipingGame(root: ParentNode = document, options?: { initi
       return Math.min(1, 0.92 * state.masterVolume * state.sfxVolume);
     }
 
+    function cachedAudio(src) {
+      const cache = globalThis["__mocaipingAudioCache"];
+      if (!cache || typeof cache.get !== "function") return null;
+      return cache.get(src) || null;
+    }
+
+    function audioFromCache(src) {
+      const cached = cachedAudio(src);
+      if (!cached) return new Audio(src);
+      return cached.cloneNode(true);
+    }
+
     function playUiFileSfx(key) {
       if (!state.sfx) return;
       const src = UI_SFX_URLS[key];
       if (!src) return;
-      const audio = new Audio(src);
+      const audio = audioFromCache(src);
       audio.preload = "auto";
       audio.volume = currentUiSfxVolume();
       audio.setAttribute("playsinline", "true");
@@ -1772,7 +1784,7 @@ export function initMocaipingGame(root: ParentNode = document, options?: { initi
       stopWaterNoise(true);
       duckMusicForWater();
 
-      const audio = new Audio(WATER_AUDIO_URL);
+      const audio = audioFromCache(WATER_AUDIO_URL);
       audio.preload = "auto";
       audio.loop = false;
       audio.currentTime = 0;
@@ -1832,7 +1844,8 @@ export function initMocaipingGame(root: ParentNode = document, options?: { initi
     }
 
     function createBackgroundAudio() {
-      const audio = document.createElement("audio");
+      const cached = cachedAudio(MUSIC_AUDIO_URL);
+      const audio = cached || document.createElement("audio");
       audio.src = MUSIC_AUDIO_URL;
       audio.preload = "auto";
       audio.loop = true;

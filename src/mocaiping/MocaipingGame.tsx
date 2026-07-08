@@ -7,12 +7,59 @@ type ScreenState = 'cover' | 'opening' | 'game'
 type GameMode = 'easy' | 'hard'
 
 const COVER_MOBILE = 'assets/brand/mocaiping-cover-mobile.png'
-const COVER_DESKTOP = 'assets/brand/mocaiping-cover-desktop.png'
+const COVER_MOBILE_390 = 'assets/brand/mocaiping-cover-mobile-390.webp'
+const COVER_MOBILE_750 = 'assets/brand/mocaiping-cover-mobile-750.webp'
+const COVER_MOBILE_940 = 'assets/brand/mocaiping-cover-mobile-940.webp'
+const COVER_DESKTOP_1200 = 'assets/brand/mocaiping-cover-desktop-1200.webp'
 const SAVE_KEY = 'mocaiping-settings-v4'
+const AUDIO_PRELOADS = [
+  'assets/pour-water.mp3',
+  'assets/pick-bottle.mp3',
+  'assets/put-down-bottle.mp3',
+  'assets/background-music.mp3',
+]
 
 function getCoverImage(): string {
   const isDesktop = window.matchMedia('(min-width: 700px) and (min-aspect-ratio: 1 / 1)').matches
-  return isDesktop ? COVER_DESKTOP : COVER_MOBILE
+  return isDesktop ? COVER_DESKTOP_1200 : COVER_MOBILE_940
+}
+
+function audioCache(): Map<string, HTMLAudioElement> {
+  const host = globalThis as typeof globalThis & { __mocaipingAudioCache?: Map<string, HTMLAudioElement> }
+  if (!host.__mocaipingAudioCache)
+    host.__mocaipingAudioCache = new Map()
+  return host.__mocaipingAudioCache
+}
+
+function preloadAudio(src: string, preload: 'auto' | 'metadata' = 'auto') {
+  const cache = audioCache()
+  const cached = cache.get(src)
+  if (cached) {
+    if (preload === 'auto' && cached.preload !== 'auto') {
+      cached.preload = 'auto'
+      cached.load()
+    }
+    return cached
+  }
+  const audio = new Audio(src)
+  audio.preload = preload
+  audio.setAttribute('playsinline', 'true')
+  audio.setAttribute('webkit-playsinline', 'true')
+  audio.load()
+  cache.set(src, audio)
+  return audio
+}
+
+function scheduleAudioPreload() {
+  const run = () => {
+    AUDIO_PRELOADS.forEach((src) => {
+      preloadAudio(src, src.includes('background-music') ? 'metadata' : 'auto')
+    })
+  }
+  const requestIdle = (window as typeof window & { requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number }).requestIdleCallback
+  if (requestIdle)
+    return requestIdle(run, { timeout: 1800 })
+  return window.setTimeout(run, 900)
 }
 
 function loadSavedMode(): GameMode {
@@ -50,6 +97,17 @@ export default function MocaipingGame() {
   useEffect(() => {
     saveSelectedMode(selectedMode)
   }, [selectedMode])
+
+  useEffect(() => {
+    const taskId = scheduleAudioPreload()
+    return () => {
+      const cancelIdle = (window as typeof window & { cancelIdleCallback?: (id: number) => void }).cancelIdleCallback
+      if (cancelIdle)
+        cancelIdle(taskId)
+      else
+        window.clearTimeout(taskId)
+    }
+  }, [])
 
   // Opening curtain animation timer
   useEffect(() => {
@@ -90,6 +148,7 @@ export default function MocaipingGame() {
       }
       catch { /* ignore */ }
     }
+    preloadAudio('assets/background-music.mp3', 'auto')
     setScreen('opening')
   }, [])
 
@@ -98,12 +157,27 @@ export default function MocaipingGame() {
       {/* Cover Home Screen */}
       {screen === 'cover' && (
         <div className="cover-screen">
-          <img
-            className="cover-art"
-            src={coverImageRef.current}
-            alt=""
-            draggable={false}
-          />
+          <picture className="cover-picture">
+            <source
+              type="image/webp"
+              media="(min-width: 700px) and (min-aspect-ratio: 1 / 1)"
+              srcSet={`${COVER_DESKTOP_1200} 1200w`}
+              sizes="100vw"
+            />
+            <source
+              type="image/webp"
+              srcSet={`${COVER_MOBILE_390} 390w, ${COVER_MOBILE_750} 750w, ${COVER_MOBILE_940} 940w`}
+              sizes="100vw"
+            />
+            <img
+              className="cover-art"
+              src={COVER_MOBILE}
+              alt=""
+              draggable={false}
+              decoding="async"
+              fetchPriority="high"
+            />
+          </picture>
           <div className="cover-mode-segmented">
             <div
               className={selectedMode === 'easy' ? 'is-active' : ''}
