@@ -737,8 +737,6 @@
       }
     }
 
-    /* ---- Cover Home Screen ---- */
-
     .cover-screen {
       position: fixed;
       inset: 0;
@@ -829,8 +827,6 @@
       box-shadow: 0 4px 0 rgba(177, 55, 115, 0.3);
     }
 
-    /* ---- Opening Curtain Animation ---- */
-
     .opening-curtain {
       position: fixed;
       inset: 0;
@@ -875,8 +871,6 @@
         transform: translateX(102%);
       }
     }
-
-    /* ---- Original Cover Intro (kept for potential reuse) ---- */
 
     @media (max-width: 540px) {
       body {
