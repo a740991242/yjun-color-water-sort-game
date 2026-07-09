@@ -1,0 +1,162 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 750 1334" role="img" aria-labelledby="title desc">
+  <title id="title">魔彩瓶 SVG 封面预览</title>
+  <desc id="desc">粉色背景、彩虹、玻璃瓶和彩色水流组成的魔彩瓶封面预览图。</desc>
+  <defs>
+    <linearGradient id="bgPink" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ff5db0"/>
+      <stop offset="0.58" stop-color="#f48cc4"/>
+      <stop offset="0.76" stop-color="#f7a7d1"/>
+      <stop offset="1" stop-color="#30b5ee"/>
+    </linearGradient>
+    <linearGradient id="floorBlue" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#50c7f5"/>
+      <stop offset="1" stop-color="#169ee1"/>
+    </linearGradient>
+    <linearGradient id="glass" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.82"/>
+      <stop offset="0.42" stop-color="#ffffff" stop-opacity="0.28"/>
+      <stop offset="1" stop-color="#baf1ff" stop-opacity="0.45"/>
+    </linearGradient>
+    <linearGradient id="stream" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#8be7ff"/>
+      <stop offset="0.45" stop-color="#1cbdf5"/>
+      <stop offset="1" stop-color="#078bdc"/>
+    </linearGradient>
+    <filter id="softShadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="9" stdDeviation="7" flood-color="#7b2d70" flood-opacity="0.24"/>
+    </filter>
+    <filter id="titleShadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="8" stdDeviation="3" flood-color="#9a2b83" flood-opacity="0.38"/>
+    </filter>
+    <clipPath id="bottleClip">
+      <rect x="-44" y="-98" width="88" height="170" rx="24"/>
+    </clipPath>
+    <symbol id="star" viewBox="-20 -20 40 40">
+      <path d="M0-18 C3-6 6-3 18 0 C6 3 3 6 0 18 C-3 6-6 3-18 0 C-6-3-3-6 0-18Z" fill="#fff" opacity="0.9"/>
+    </symbol>
+    <symbol id="heart" viewBox="0 0 64 58">
+      <path d="M32 55 C15 39 4 28 4 16 C4 7 10 2 18 2 C24 2 29 6 32 12 C35 6 40 2 46 2 C54 2 60 7 60 16 C60 28 49 39 32 55Z" fill="#ffd0e4" opacity="0.6"/>
+    </symbol>
+    <symbol id="bubble" viewBox="0 0 70 70">
+      <circle cx="35" cy="35" r="32" fill="#fff" opacity="0.13"/>
+      <circle cx="24" cy="22" r="10" fill="#fff" opacity="0.28"/>
+      <circle cx="47" cy="17" r="6" fill="#fff" opacity="0.34"/>
+    </symbol>
+    <symbol id="uprightBottle" viewBox="-62 -140 124 260">
+      <g filter="url(#softShadow)">
+        <rect x="-20" y="-134" width="40" height="42" rx="8" fill="none" stroke="#fff" stroke-width="9"/>
+        <rect x="-44" y="-100" width="88" height="190" rx="27" fill="url(#glass)" stroke="#fff" stroke-width="9"/>
+        <rect x="-34" y="-89" width="68" height="166" rx="18" fill="#fff" opacity="0.16"/>
+        <path d="M-28-72 V-20" stroke="#fff" stroke-width="7" stroke-linecap="round" opacity="0.75"/>
+      </g>
+    </symbol>
+  </defs>
+
+  <rect width="750" height="1334" fill="url(#bgPink)"/>
+  <rect y="900" width="750" height="434" fill="url(#floorBlue)"/>
+  <ellipse cx="375" cy="966" rx="540" ry="108" fill="#73d5fb" opacity="0.25"/>
+  <ellipse cx="375" cy="950" rx="510" ry="72" fill="#ffffff" opacity="0.12"/>
+
+  <g fill="none" stroke-linecap="round" opacity="0.86">
+    <path d="M-40 310 C130 70 560 65 790 310" stroke="#ff5577" stroke-width="38"/>
+    <path d="M-23 331 C145 111 562 102 773 331" stroke="#ff9b4d" stroke-width="33"/>
+    <path d="M-7 350 C164 151 552 140 757 350" stroke="#ffe86b" stroke-width="30"/>
+    <path d="M9 370 C178 191 546 178 741 370" stroke="#61d57d" stroke-width="27"/>
+    <path d="M27 389 C195 229 540 214 723 389" stroke="#51c9ff" stroke-width="25"/>
+    <path d="M46 407 C213 267 531 249 704 407" stroke="#8b6cff" stroke-width="24"/>
+  </g>
+
+  <use href="#heart" x="58" y="42" width="74" height="68"/>
+  <use href="#heart" x="540" y="500" width="62" height="58"/>
+  <use href="#heart" x="232" y="420" width="58" height="52"/>
+  <use href="#bubble" x="18" y="540" width="94" height="94"/>
+  <use href="#bubble" x="600" y="395" width="82" height="82"/>
+  <use href="#bubble" x="642" y="80" width="92" height="92"/>
+  <use href="#star" x="74" y="158" width="56" height="56"/>
+  <use href="#star" x="392" y="438" width="46" height="46"/>
+  <use href="#star" x="596" y="122" width="34" height="34"/>
+  <use href="#star" x="178" y="606" width="28" height="28"/>
+  <use href="#star" x="456" y="258" width="25" height="25"/>
+
+  <g filter="url(#titleShadow)">
+    <text x="375" y="222" text-anchor="middle" font-family="PingFang SC, Microsoft YaHei, sans-serif" font-size="118" font-weight="900" letter-spacing="2" fill="#fff" stroke="#fff" stroke-width="22" paint-order="stroke">魔彩瓶</text>
+    <text x="375" y="222" text-anchor="middle" font-family="PingFang SC, Microsoft YaHei, sans-serif" font-size="118" font-weight="900" letter-spacing="2" fill="#ff4d96" stroke="#8b4cff" stroke-width="5" paint-order="stroke">魔彩瓶</text>
+    <text x="292" y="222" text-anchor="middle" font-family="PingFang SC, Microsoft YaHei, sans-serif" font-size="118" font-weight="900" letter-spacing="2" fill="#ff4d96">彩</text>
+    <text x="458" y="222" text-anchor="middle" font-family="PingFang SC, Microsoft YaHei, sans-serif" font-size="118" font-weight="900" letter-spacing="2" fill="#168df4">瓶</text>
+  </g>
+
+  <g transform="translate(504 534) rotate(-32)" filter="url(#softShadow)">
+    <rect x="-22" y="-118" width="44" height="48" rx="9" fill="none" stroke="#fff" stroke-width="8"/>
+    <rect x="-48" y="-86" width="96" height="190" rx="27" fill="url(#glass)" stroke="#fff" stroke-width="9"/>
+    <g clip-path="url(#bottleClip)" transform="translate(0 0)">
+      <rect x="-44" y="22" width="88" height="58" fill="#ff6090"/>
+      <rect x="-44" y="-35" width="88" height="57" fill="#42d27d"/>
+      <rect x="-44" y="-92" width="88" height="57" fill="#7042d9"/>
+      <path d="M-44 22 H44 M-44-35 H44" stroke="#fff" stroke-width="3" opacity="0.28"/>
+    </g>
+    <path d="M-30-66 V-14" stroke="#fff" stroke-width="6" stroke-linecap="round" opacity="0.65"/>
+  </g>
+
+  <path d="M398 606 C342 668 296 753 278 862 C273 891 268 920 266 945" fill="none" stroke="#e9ffff" stroke-width="40" stroke-linecap="round" opacity="0.58"/>
+  <path d="M398 606 C342 668 296 753 278 862 C273 891 268 920 266 945" fill="none" stroke="url(#stream)" stroke-width="26" stroke-linecap="round"/>
+  <path d="M413 618 C355 690 312 776 298 872" fill="none" stroke="#9bf4ff" stroke-width="7" stroke-linecap="round" opacity="0.7"/>
+
+  <g transform="translate(118 876)">
+    <use href="#uprightBottle"/>
+    <g clip-path="url(#bottleClip)">
+      <rect x="-44" y="-54" width="88" height="44" fill="#8c44de"/>
+      <rect x="-44" y="-10" width="88" height="44" fill="#ff5c86"/>
+      <rect x="-44" y="34" width="88" height="44" fill="#48d584"/>
+      <rect x="-44" y="78" width="88" height="44" fill="#2e72e8"/>
+      <path d="M-44-10 H44 M-44 34 H44 M-44 78 H44" stroke="#fff" stroke-width="3" opacity="0.18"/>
+    </g>
+  </g>
+  <g transform="translate(294 928) scale(1.18)">
+    <use href="#uprightBottle"/>
+    <g clip-path="url(#bottleClip)">
+      <rect x="-44" y="-10" width="88" height="90" fill="#ff5d86"/>
+      <rect x="-44" y="80" width="88" height="52" fill="#2aa9ef"/>
+      <path d="M-15 -18 C-1 -10 15 -8 28 -20" fill="none" stroke="#fff" stroke-width="4" opacity="0.22"/>
+    </g>
+  </g>
+  <g transform="translate(492 882)">
+    <use href="#uprightBottle"/>
+    <g clip-path="url(#bottleClip)">
+      <rect x="-44" y="-40" width="88" height="48" fill="#ff982e"/>
+      <rect x="-44" y="8" width="88" height="48" fill="#ffe14d"/>
+      <rect x="-44" y="56" width="88" height="48" fill="#43d77f"/>
+      <rect x="-44" y="104" width="88" height="44" fill="#2374e6"/>
+      <path d="M-44 8 H44 M-44 56 H44 M-44 104 H44" stroke="#fff" stroke-width="3" opacity="0.18"/>
+    </g>
+  </g>
+  <g transform="translate(650 885)">
+    <use href="#uprightBottle"/>
+    <g clip-path="url(#bottleClip)">
+      <rect x="-44" y="-48" width="88" height="56" fill="#8a35df"/>
+      <rect x="-44" y="8" width="88" height="56" fill="#1d8ee8"/>
+      <rect x="-44" y="64" width="88" height="56" fill="#ff5d86"/>
+      <path d="M-44 8 H44 M-44 64 H44" stroke="#fff" stroke-width="3" opacity="0.18"/>
+    </g>
+  </g>
+
+  <g opacity="0.95">
+    <ellipse cx="274" cy="820" rx="14" ry="19" fill="#15baf5" transform="rotate(22 274 820)"/>
+    <ellipse cx="326" cy="798" rx="13" ry="18" fill="#ee4c87" transform="rotate(-20 326 798)"/>
+    <ellipse cx="239" cy="742" rx="12" ry="17" fill="#f7d53f" transform="rotate(6 239 742)"/>
+    <ellipse cx="332" cy="700" rx="12" ry="16" fill="#1ea8ef" transform="rotate(25 332 700)"/>
+    <path d="M284 850 C270 858 260 875 270 890 C285 878 292 864 284 850Z" fill="#21c5f6"/>
+    <path d="M310 848 C326 856 336 871 330 888 C312 878 304 863 310 848Z" fill="#0aaee9"/>
+  </g>
+
+  <g transform="translate(375 1134)">
+    <rect x="-132" y="-37" width="264" height="74" rx="36" fill="#dff6ff" opacity="0.95" filter="url(#softShadow)"/>
+    <rect x="-132" y="-37" width="132" height="74" rx="36" fill="#f85da0"/>
+    <path d="M0-37 H96 Q132-37 132 0 Q132 37 96 37 H0Z" fill="#dff6ff"/>
+    <text x="-66" y="11" text-anchor="middle" font-family="PingFang SC, Microsoft YaHei, sans-serif" font-size="28" font-weight="800" fill="#fff">简单</text>
+    <text x="66" y="11" text-anchor="middle" font-family="PingFang SC, Microsoft YaHei, sans-serif" font-size="28" font-weight="800" fill="#087bb5">困难</text>
+  </g>
+  <g transform="translate(375 1243)" filter="url(#softShadow)">
+    <rect x="-232" y="-48" width="464" height="96" rx="48" fill="#f8549c"/>
+    <text x="0" y="12" text-anchor="middle" font-family="PingFang SC, Microsoft YaHei, sans-serif" font-size="38" font-weight="900" fill="#fff">开始游戏</text>
+  </g>
+</svg>

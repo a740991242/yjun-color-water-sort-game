@@ -11,6 +11,7 @@ const COVER_MOBILE_390 = 'assets/brand/mocaiping-cover-mobile-390.webp'
 const COVER_MOBILE_750 = 'assets/brand/mocaiping-cover-mobile-750.webp'
 const COVER_MOBILE_940 = 'assets/brand/mocaiping-cover-mobile-940.webp'
 const COVER_DESKTOP_1200 = 'assets/brand/mocaiping-cover-desktop-1200.webp'
+const COVER_PLACEHOLDER = 'assets/brand/mocaiping-cover-placeholder.webp'
 const SAVE_KEY = 'mocaiping-settings-v4'
 const AUDIO_PRELOADS = [
   'assets/pour-water.mp3',
@@ -90,6 +91,7 @@ const GAME_MARKUP = '<main class="game-shell">\n    <header class="topbar">\n   
 export default function MocaipingGame() {
   const [screen, setScreen] = useState<ScreenState>('cover')
   const [selectedMode, setSelectedMode] = useState<GameMode>(loadSavedMode)
+  const [coverLoaded, setCoverLoaded] = useState(false)
   const hostRef = useRef<HTMLDivElement>(null)
   const coverImageRef = useRef(getCoverImage())
 
@@ -151,7 +153,14 @@ export default function MocaipingGame() {
   return (
     <>
       {screen === 'cover' && (
-        <div className="cover-screen">
+        <div className={coverLoaded ? 'cover-screen is-cover-loaded' : 'cover-screen'}>
+          <img
+            className="cover-placeholder"
+            src={COVER_PLACEHOLDER}
+            alt=""
+            draggable={false}
+            aria-hidden="true"
+          />
           <picture className="cover-picture">
             <source
               type="image/webp"
@@ -171,6 +180,7 @@ export default function MocaipingGame() {
               draggable={false}
               decoding="async"
               fetchPriority="high"
+              onLoad={() => setCoverLoaded(true)}
             />
           </picture>
           <div className="cover-mode-segmented">
